@@ -47,7 +47,12 @@ class _GrainOverlayState extends State<GrainOverlay> {
     return Positioned.fill(
       child: IgnorePointer(
         child: CustomPaint(
-          painter: _GrainPainter(image, tokens.grainBlend, tokens.grainOpacity, dpr),
+          painter: _GrainPainter(
+            image,
+            tokens.grainBlend,
+            tokens.grainOpacity,
+            dpr,
+          ),
         ),
       ),
     );
@@ -80,5 +85,7 @@ class _GrainPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _GrainPainter oldDelegate) =>
-      oldDelegate.image != image || oldDelegate.blend != blend || oldDelegate.opacity != opacity;
+      oldDelegate.image != image ||
+      oldDelegate.blend != blend ||
+      oldDelegate.opacity != opacity;
 }

@@ -19,11 +19,16 @@ class KvRow extends StatelessWidget {
     return Container(
       height: 28,
       alignment: Alignment.center,
-      decoration: BoxDecoration(border: Border(bottom: BorderSide(color: t.lineSoft, width: 1))),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: t.lineSoft, width: 1)),
+      ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label.toUpperCase(), style: AppTypography.kvLabel.copyWith(color: t.muted)),
+          Text(
+            label.toUpperCase(),
+            style: AppTypography.kvLabel.copyWith(color: t.muted),
+          ),
           value,
         ],
       ),

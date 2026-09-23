@@ -22,7 +22,12 @@ class MonitorSkeleton extends StatelessWidget {
             physics: const ClampingScrollPhysics(),
             children: [
               for (final fraction in _skeletonNameFractions)
-                _SkeletonRow(nameFraction: fraction, lineSoft: t.lineSoft, tint: t.tint, tint2: t.tint2),
+                _SkeletonRow(
+                  nameFraction: fraction,
+                  lineSoft: t.lineSoft,
+                  tint: t.tint,
+                  tint2: t.tint2,
+                ),
             ],
           ),
         ),
@@ -34,7 +39,11 @@ class MonitorSkeleton extends StatelessWidget {
 class MonitorColumnHeader extends StatelessWidget {
   final Color line;
   final Color faint;
-  const MonitorColumnHeader({super.key, required this.line, required this.faint});
+  const MonitorColumnHeader({
+    super.key,
+    required this.line,
+    required this.faint,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -42,15 +51,29 @@ class MonitorColumnHeader extends StatelessWidget {
     return Container(
       height: 26,
       padding: const EdgeInsets.symmetric(horizontal: 8),
-      decoration: BoxDecoration(border: Border(bottom: BorderSide(color: line, width: 1))),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: line, width: 1)),
+      ),
       child: Row(
         children: [
           SizedBox(width: monitorRowColumnWidths[0]),
           Expanded(child: Text('NAME', style: style)),
-          SizedBox(width: monitorRowColumnWidths[1], child: Text('TYPE', style: style)),
-          SizedBox(width: monitorRowColumnWidths[2], child: Text('RESP', textAlign: TextAlign.right, style: style)),
-          SizedBox(width: monitorRowColumnWidths[3], child: Text('24H', textAlign: TextAlign.right, style: style)),
-          SizedBox(width: monitorRowColumnWidths[4], child: Text('CERT', textAlign: TextAlign.right, style: style)),
+          SizedBox(
+            width: monitorRowColumnWidths[1],
+            child: Text('TYPE', style: style),
+          ),
+          SizedBox(
+            width: monitorRowColumnWidths[2],
+            child: Text('RESP', textAlign: TextAlign.right, style: style),
+          ),
+          SizedBox(
+            width: monitorRowColumnWidths[3],
+            child: Text('24H', textAlign: TextAlign.right, style: style),
+          ),
+          SizedBox(
+            width: monitorRowColumnWidths[4],
+            child: Text('CERT', textAlign: TextAlign.right, style: style),
+          ),
         ],
       ),
     );
@@ -75,11 +98,16 @@ class _SkeletonRow extends StatelessWidget {
     return Container(
       height: 32,
       padding: const EdgeInsets.symmetric(horizontal: 8),
-      decoration: BoxDecoration(border: Border(bottom: BorderSide(color: lineSoft, width: 1))),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: lineSoft, width: 1)),
+      ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          SizedBox(width: monitorRowColumnWidths[0], child: Container(width: 7, height: 7, color: tint2)),
+          SizedBox(
+            width: monitorRowColumnWidths[0],
+            child: Container(width: 7, height: 7, color: tint2),
+          ),
           Expanded(
             child: FractionallySizedBox(
               alignment: Alignment.centerLeft,
@@ -89,19 +117,31 @@ class _SkeletonRow extends StatelessWidget {
           ),
           SizedBox(
             width: monitorRowColumnWidths[1],
-            child: Align(alignment: Alignment.centerLeft, child: Container(width: 34, height: 7, color: tint)),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Container(width: 34, height: 7, color: tint),
+            ),
           ),
           SizedBox(
             width: monitorRowColumnWidths[2],
-            child: Align(alignment: Alignment.centerRight, child: Container(width: 36, height: 7, color: tint2)),
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: Container(width: 36, height: 7, color: tint2),
+            ),
           ),
           SizedBox(
             width: monitorRowColumnWidths[3],
-            child: Align(alignment: Alignment.centerRight, child: Container(width: 48, height: 7, color: tint2)),
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: Container(width: 48, height: 7, color: tint2),
+            ),
           ),
           SizedBox(
             width: monitorRowColumnWidths[4],
-            child: Align(alignment: Alignment.centerRight, child: Container(width: 22, height: 7, color: tint)),
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: Container(width: 22, height: 7, color: tint),
+            ),
           ),
         ],
       ),

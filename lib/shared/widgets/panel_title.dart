@@ -17,9 +17,15 @@ class PanelTitle extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 6),
       child: Row(
         children: [
-          Text(title.toUpperCase(), style: AppTypography.panelTitle.copyWith(color: t.ink)),
+          Text(
+            title.toUpperCase(),
+            style: AppTypography.panelTitle.copyWith(color: t.ink),
+          ),
           const SizedBox(width: 12),
-          Text(tag.toUpperCase(), style: AppTypography.panelTag.copyWith(color: t.faint)),
+          Text(
+            tag.toUpperCase(),
+            style: AppTypography.panelTag.copyWith(color: t.faint),
+          ),
           const SizedBox(width: 12),
           Expanded(child: Hairline(color: t.line)),
         ],

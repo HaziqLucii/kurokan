@@ -30,10 +30,15 @@ class DossierButton extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
             decoration: BoxDecoration(
-              color: visual == DossierButtonVisual.active ? t.tint : Colors.transparent,
+              color: visual == DossierButtonVisual.active
+                  ? t.tint
+                  : Colors.transparent,
               border: Border.all(color: t.lineStrong, width: 1),
             ),
-            child: Text(label.toUpperCase(), style: AppTypography.button.copyWith(color: t.ink)),
+            child: Text(
+              label.toUpperCase(),
+              style: AppTypography.button.copyWith(color: t.ink),
+            ),
           ),
         ),
       ),

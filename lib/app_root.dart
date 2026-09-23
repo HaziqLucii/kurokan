@@ -29,7 +29,10 @@ class _AppRootState extends State<AppRoot> {
   @override
   void initState() {
     super.initState();
-    _loader = ConfigLoader(env: Platform.environment, home: Platform.environment['HOME'] ?? '');
+    _loader = ConfigLoader(
+      env: Platform.environment,
+      home: Platform.environment['HOME'] ?? '',
+    );
     Directory(_loader.dir).createSync(recursive: true);
     _tryLoad();
     _sub = ConfigWatcher(_loader.dir).events.listen((_) => _tryLoad());

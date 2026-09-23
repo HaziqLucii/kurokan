@@ -28,7 +28,9 @@ class DashboardHeader extends StatelessWidget {
     final wordmarkSize = (containerWidth * 0.09).clamp(48.0, 96.0);
     return Container(
       padding: const EdgeInsets.only(bottom: 14),
-      decoration: BoxDecoration(border: Border(bottom: BorderSide(color: t.line, width: 1))),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: t.line, width: 1)),
+      ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
@@ -60,7 +62,11 @@ class DashboardHeader extends StatelessWidget {
                       DossierButton(label: 'Settings', onPressed: onSettings),
                       const SizedBox(width: 8),
                     ],
-                    DossierButton(label: refreshLabel, onPressed: onRefresh, visual: refreshVisual),
+                    DossierButton(
+                      label: refreshLabel,
+                      onPressed: onRefresh,
+                      visual: refreshVisual,
+                    ),
                   ],
                 ),
               ],

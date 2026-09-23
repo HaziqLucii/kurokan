@@ -36,7 +36,10 @@ class _SettingsFormState extends State<SettingsForm> {
     _urlController = TextEditingController(text: initial?.kuma.url ?? '');
     _apiKeyController = TextEditingController();
     _pollController = TextEditingController(
-      text: (initial?.pollInterval.inSeconds ?? AppConfig.defaultPollInterval.inSeconds).toString(),
+      text:
+          (initial?.pollInterval.inSeconds ??
+                  AppConfig.defaultPollInterval.inSeconds)
+              .toString(),
     );
     _theme = initial?.theme ?? ThemePreference.system;
   }
@@ -65,14 +68,20 @@ class _SettingsFormState extends State<SettingsForm> {
       return;
     }
     if (poll == null || poll <= 0) {
-      setState(() => _error = 'Poll interval must be a positive number of seconds.');
+      setState(
+        () => _error = 'Poll interval must be a positive number of seconds.',
+      );
       return;
     }
 
     final typedToken = _tokenController.text.trim();
     final typedApiKey = _apiKeyController.text.trim();
-    final token = typedToken.isEmpty ? widget.initial?.webdock.apiToken : typedToken;
-    final apiKey = typedApiKey.isEmpty ? widget.initial?.kuma.apiKey : typedApiKey;
+    final token = typedToken.isEmpty
+        ? widget.initial?.webdock.apiToken
+        : typedToken;
+    final apiKey = typedApiKey.isEmpty
+        ? widget.initial?.kuma.apiKey
+        : typedApiKey;
 
     if (token == null || token.isEmpty) {
       setState(() => _error = 'Webdock API token is required.');
@@ -83,12 +92,14 @@ class _SettingsFormState extends State<SettingsForm> {
       return;
     }
 
-    final saveError = widget.onSave(AppConfig(
-      webdock: WebdockConfig(slug: slug, apiToken: token),
-      kuma: KumaConfig(url: url, apiKey: apiKey),
-      pollInterval: Duration(seconds: poll),
-      theme: _theme,
-    ));
+    final saveError = widget.onSave(
+      AppConfig(
+        webdock: WebdockConfig(slug: slug, apiToken: token),
+        kuma: KumaConfig(url: url, apiKey: apiKey),
+        pollInterval: Duration(seconds: poll),
+        theme: _theme,
+      ),
+    );
     setState(() => _error = saveError);
   }
 
@@ -122,9 +133,15 @@ class _SettingsFormState extends State<SettingsForm> {
         Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Text('THEME', style: AppTypography.kvLabel.copyWith(color: t.muted)),
+            Text(
+              'THEME',
+              style: AppTypography.kvLabel.copyWith(color: t.muted),
+            ),
             const SizedBox(width: 16),
-            _ThemeSelector(value: _theme, onChanged: (p) => setState(() => _theme = p)),
+            _ThemeSelector(
+              value: _theme,
+              onChanged: (p) => setState(() => _theme = p),
+            ),
           ],
         ),
         if (_error != null) ...[
@@ -134,7 +151,10 @@ class _SettingsFormState extends State<SettingsForm> {
         const SizedBox(height: 20),
         Align(
           alignment: Alignment.centerLeft,
-          child: DossierButton(label: _isEdit ? 'Save' : 'Create config', onPressed: _submit),
+          child: DossierButton(
+            label: _isEdit ? 'Save' : 'Create config',
+            onPressed: _submit,
+          ),
         ),
       ],
     );
@@ -156,7 +176,9 @@ class _ThemeSelector extends StatelessWidget {
             padding: const EdgeInsets.only(right: 8),
             child: DossierButton(
               label: themePreferenceToString(pref),
-              visual: pref == value ? DossierButtonVisual.active : DossierButtonVisual.idle,
+              visual: pref == value
+                  ? DossierButtonVisual.active
+                  : DossierButtonVisual.idle,
               onPressed: () => onChanged(pref),
             ),
           ),

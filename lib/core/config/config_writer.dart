@@ -10,7 +10,9 @@ class ConfigWriter {
   void write(AppConfig config) {
     final file = File(path);
     file.parent.createSync(recursive: true);
-    final jsonText = const JsonEncoder.withIndent('  ').convert(config.toJson());
+    final jsonText = const JsonEncoder.withIndent(
+      '  ',
+    ).convert(config.toJson());
 
     final tempFile = File('$path.tmp');
     tempFile.writeAsStringSync(jsonText);

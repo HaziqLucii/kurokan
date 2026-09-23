@@ -10,15 +10,17 @@ ThemePreference themePreferenceFromString(String? value) {
     case 'system':
       return ThemePreference.system;
     default:
-      throw FormatException('theme must be one of system, dark, light (got "$value")');
+      throw FormatException(
+        'theme must be one of system, dark, light (got "$value")',
+      );
   }
 }
 
 String themePreferenceToString(ThemePreference pref) => switch (pref) {
-      ThemePreference.system => 'system',
-      ThemePreference.dark => 'dark',
-      ThemePreference.light => 'light',
-    };
+  ThemePreference.system => 'system',
+  ThemePreference.dark => 'dark',
+  ThemePreference.light => 'light',
+};
 
 class WebdockConfig {
   final String slug;
@@ -95,22 +97,26 @@ class AppConfig {
     }
     final themeValue = json['theme'];
     if (themeValue != null && themeValue is! String) {
-      throw const FormatException('theme must be a string (system, dark, or light)');
+      throw const FormatException(
+        'theme must be a string (system, dark, or light)',
+      );
     }
     return AppConfig(
       webdock: WebdockConfig.fromJson(webdockJson),
       kuma: KumaConfig.fromJson(kumaJson),
-      pollInterval: Duration(seconds: pollIntervalSec ?? defaultPollInterval.inSeconds),
+      pollInterval: Duration(
+        seconds: pollIntervalSec ?? defaultPollInterval.inSeconds,
+      ),
       theme: themePreferenceFromString(themeValue as String?),
     );
   }
 
   Map<String, dynamic> toJson() => {
-        'webdock': webdock.toJson(),
-        'kuma': kuma.toJson(),
-        'pollIntervalSec': pollInterval.inSeconds,
-        'theme': themePreferenceToString(theme),
-      };
+    'webdock': webdock.toJson(),
+    'kuma': kuma.toJson(),
+    'pollIntervalSec': pollInterval.inSeconds,
+    'theme': themePreferenceToString(theme),
+  };
 }
 
 class ConfigError implements Exception {

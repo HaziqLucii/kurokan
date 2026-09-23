@@ -16,22 +16,22 @@ String _time(DateTime t) =>
     '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}:${t.second.toString().padLeft(2, '0')}';
 
 String _errorKind(Object? error) => switch (error) {
-      NetworkError _ => 'NETWORK',
-      AuthError _ => 'AUTH',
-      HttpError _ => 'HTTP',
-      ParseError _ => 'PARSE',
-      TimeoutError _ => 'TIMEOUT',
-      _ => 'ERROR',
-    };
+  NetworkError _ => 'NETWORK',
+  AuthError _ => 'AUTH',
+  HttpError _ => 'HTTP',
+  ParseError _ => 'PARSE',
+  TimeoutError _ => 'TIMEOUT',
+  _ => 'ERROR',
+};
 
 String _errorMessage(Object? error) => switch (error) {
-      NetworkError e => 'NETWORK · ${e.detail} · CHECK kuma.url',
-      AuthError e => 'AUTH · ${e.status} FROM KUMA · CHECK kuma.apiKey',
-      HttpError e => 'HTTP · ${e.status} FROM KUMA',
-      ParseError e => 'PARSE · ${e.detail}',
-      TimeoutError _ => 'TIMEOUT · 10S',
-      _ => 'UNKNOWN ERROR',
-    };
+  NetworkError e => 'NETWORK · ${e.detail} · CHECK kuma.url',
+  AuthError e => 'AUTH · ${e.status} FROM KUMA · CHECK kuma.apiKey',
+  HttpError e => 'HTTP · ${e.status} FROM KUMA',
+  ParseError e => 'PARSE · ${e.detail}',
+  TimeoutError _ => 'TIMEOUT · 10S',
+  _ => 'UNKNOWN ERROR',
+};
 
 class MonitorPanel extends ConsumerWidget {
   const MonitorPanel({super.key});
@@ -67,7 +67,9 @@ class MonitorPanel extends ConsumerWidget {
     } else {
       final sample = async.requireValue;
       final monitors = sample.value;
-      final downCount = monitors.where((m) => m.state == MonitorState.down).length;
+      final downCount = monitors
+          .where((m) => m.state == MonitorState.down)
+          .length;
       tag = monitors.length.toString().padLeft(2, '0');
       footerRight =
           '${monitors.length.toString().padLeft(2, '0')} monitors · ${downCount.toString().padLeft(2, '0')} down';
@@ -76,7 +78,8 @@ class MonitorPanel extends ConsumerWidget {
         footerLeft = 'Refreshing';
       } else if (hasError) {
         dimmed = true;
-        footerLeft = 'Stale · Last ok ${_time(sample.fetchedAt)} · ${_errorKind(async.error)}';
+        footerLeft =
+            'Stale · Last ok ${_time(sample.fetchedAt)} · ${_errorKind(async.error)}';
       } else {
         footerLeft = 'Fetched ${_time(sample.fetchedAt)}';
       }

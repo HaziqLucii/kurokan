@@ -17,12 +17,20 @@ class VitalsSkeleton extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             for (final valueWidth in _skeletonKvValueWidths)
-              _SkeletonKvRow(valueWidth: valueWidth, lineSoft: t.lineSoft, tint: t.tint, tint2: t.tint2),
+              _SkeletonKvRow(
+                valueWidth: valueWidth,
+                lineSoft: t.lineSoft,
+                tint: t.tint,
+                tint2: t.tint2,
+              ),
             const SizedBox(height: 16),
             Expanded(
               child: LayoutBuilder(
                 builder: (context, constraints) {
-                  final columns = (constraints.maxWidth / 151).floor().clamp(1, 8);
+                  final columns = (constraints.maxWidth / 151).floor().clamp(
+                    1,
+                    8,
+                  );
                   return GridView.count(
                     crossAxisCount: columns,
                     mainAxisSpacing: 1,
@@ -31,7 +39,12 @@ class VitalsSkeleton extends StatelessWidget {
                     physics: const NeverScrollableScrollPhysics(),
                     children: List.generate(
                       4,
-                      (_) => _SkeletonTile(border: t.lineSoft, tint: t.tint, tint2: t.tint2, paper: t.paper),
+                      (_) => _SkeletonTile(
+                        border: t.lineSoft,
+                        tint: t.tint,
+                        tint2: t.tint2,
+                        paper: t.paper,
+                      ),
                     ),
                   );
                 },
@@ -62,7 +75,9 @@ class _SkeletonKvRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       height: 28,
-      decoration: BoxDecoration(border: Border(bottom: BorderSide(color: lineSoft, width: 1))),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: lineSoft, width: 1)),
+      ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -80,7 +95,12 @@ class _SkeletonTile extends StatelessWidget {
   final Color tint2;
   final Color paper;
 
-  const _SkeletonTile({required this.border, required this.tint, required this.tint2, required this.paper});
+  const _SkeletonTile({
+    required this.border,
+    required this.tint,
+    required this.tint2,
+    required this.paper,
+  });
 
   @override
   Widget build(BuildContext context) {

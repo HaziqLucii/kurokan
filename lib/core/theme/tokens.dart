@@ -86,9 +86,13 @@ class DesignTokensExtension extends ThemeExtension<DesignTokensExtension> {
   DesignTokensExtension copyWith() => this;
 
   @override
-  DesignTokensExtension lerp(ThemeExtension<DesignTokensExtension>? other, double t) => this;
+  DesignTokensExtension lerp(
+    ThemeExtension<DesignTokensExtension>? other,
+    double t,
+  ) => this;
 }
 
 extension DesignTokensContext on BuildContext {
-  DesignTokens get tokens => Theme.of(this).extension<DesignTokensExtension>()!.tokens;
+  DesignTokens get tokens =>
+      Theme.of(this).extension<DesignTokensExtension>()!.tokens;
 }

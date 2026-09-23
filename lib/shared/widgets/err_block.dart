@@ -30,10 +30,18 @@ class ErrBlock extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                 color: t.ink,
-                child: Text('ERR', style: AppTypography.errChip.copyWith(color: t.paper)),
+                child: Text(
+                  'ERR',
+                  style: AppTypography.errChip.copyWith(color: t.paper),
+                ),
               ),
               const SizedBox(width: 12),
-              Expanded(child: Text(message, style: AppTypography.errMsg.copyWith(color: t.ink))),
+              Expanded(
+                child: Text(
+                  message,
+                  style: AppTypography.errMsg.copyWith(color: t.ink),
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 10),

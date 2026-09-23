@@ -12,7 +12,11 @@ class SettingsScreen extends StatelessWidget {
   final AppConfig? initial;
   final String configPath;
 
-  const SettingsScreen({super.key, required this.initial, required this.configPath});
+  const SettingsScreen({
+    super.key,
+    required this.initial,
+    required this.configPath,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -29,10 +33,16 @@ class SettingsScreen extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Expanded(
-                  child: PanelTitle(title: 'Settings', tag: isEdit ? 'Edit config' : 'First setup'),
+                  child: PanelTitle(
+                    title: 'Settings',
+                    tag: isEdit ? 'Edit config' : 'First setup',
+                  ),
                 ),
                 const SizedBox(width: 12),
-                DossierButton(label: '← Back', onPressed: () => Navigator.of(context).maybePop()),
+                DossierButton(
+                  label: '← Back',
+                  onPressed: () => Navigator.of(context).maybePop(),
+                ),
               ],
             ),
             const SizedBox(height: 20),

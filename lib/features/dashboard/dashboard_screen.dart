@@ -36,7 +36,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   void _handleRefresh() {
     final now = clock.now();
-    if (_lastManualRefresh != null && now.difference(_lastManualRefresh!) < _manualRefreshDebounce) {
+    if (_lastManualRefresh != null &&
+        now.difference(_lastManualRefresh!) < _manualRefreshDebounce) {
       return;
     }
     _lastManualRefresh = now;
@@ -45,34 +46,42 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   }
 
   void _openSettings(AppConfig config, String configPath) {
-    Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => SettingsScreen(initial: config, configPath: configPath),
-    ));
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => SettingsScreen(initial: config, configPath: configPath),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final config = ref.watch(appConfigProvider);
     final t = context.tokens;
-    final marginMeta = '${config.webdock.slug} · POLL ${config.pollInterval.inSeconds}S · V$appVersion';
+    final marginMeta =
+        '${config.webdock.slug} · POLL ${config.pollInterval.inSeconds}S · V$appVersion';
 
     final monitorsAsync = ref.watch(monitorsProvider);
     final vitalsAsync = ref.watch(vitalsProvider);
-    final initialLoading = (monitorsAsync.isLoading && !monitorsAsync.hasValue) ||
+    final initialLoading =
+        (monitorsAsync.isLoading && !monitorsAsync.hasValue) ||
         (vitalsAsync.isLoading && !vitalsAsync.hasValue);
     final refreshing = monitorsAsync.isLoading || vitalsAsync.isLoading;
 
     final refreshVisual = initialLoading
         ? DossierButtonVisual.disabled
         : refreshing
-            ? DossierButtonVisual.active
-            : DossierButtonVisual.idle;
-    final refreshLabel = refreshing && !initialLoading ? 'Refreshing' : '↻ Refresh';
+        ? DossierButtonVisual.active
+        : DossierButtonVisual.idle;
+    final refreshLabel = refreshing && !initialLoading
+        ? 'Refreshing'
+        : '↻ Refresh';
 
     return CallbackShortcuts(
       bindings: {
-        LogicalKeySet(LogicalKeyboardKey.meta, LogicalKeyboardKey.keyR): _handleRefresh,
-        LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyR): _handleRefresh,
+        LogicalKeySet(LogicalKeyboardKey.meta, LogicalKeyboardKey.keyR):
+            _handleRefresh,
+        LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyR):
+            _handleRefresh,
       },
       child: Focus(
         autofocus: true,
@@ -89,7 +98,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   refreshLabel: refreshLabel,
                   refreshVisual: refreshVisual,
                   onRefresh: initialLoading ? null : _handleRefresh,
-                  onSettings: () => _openSettings(config, ref.read(configPathProvider)),
+                  onSettings: () =>
+                      _openSettings(config, ref.read(configPathProvider)),
                 ),
                 const SizedBox(height: 20),
                 Expanded(

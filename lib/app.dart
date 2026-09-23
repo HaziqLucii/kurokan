@@ -23,8 +23,8 @@ class App extends ConsumerWidget {
   }
 
   ThemeMode _themeMode(ThemePreference pref) => switch (pref) {
-        ThemePreference.system => ThemeMode.system,
-        ThemePreference.dark => ThemeMode.dark,
-        ThemePreference.light => ThemeMode.light,
-      };
+    ThemePreference.system => ThemeMode.system,
+    ThemePreference.dark => ThemeMode.dark,
+    ThemePreference.light => ThemeMode.light,
+  };
 }

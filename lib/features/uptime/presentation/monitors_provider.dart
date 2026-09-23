@@ -10,7 +10,11 @@ import '../domain/monitor_status.dart';
 final monitorSourceProvider = Provider<MonitorSource>((ref) {
   final config = ref.watch(appConfigProvider);
   final client = ref.watch(httpClientProvider);
-  return UptimeKumaMetricsSource(url: config.kuma.url, apiKey: config.kuma.apiKey, client: client);
+  return UptimeKumaMetricsSource(
+    url: config.kuma.url,
+    apiKey: config.kuma.apiKey,
+    client: client,
+  );
 });
 
 final monitorsProvider = polled<List<MonitorStatus>>(

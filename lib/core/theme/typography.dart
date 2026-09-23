@@ -57,20 +57,11 @@ abstract final class AppTypography {
     letterSpacing: 9.6 * 0.12,
   );
 
-  static const rowCert = TextStyle(
-    fontFamily: 'Space Mono',
-    fontSize: 9.92,
-  );
+  static const rowCert = TextStyle(fontFamily: 'Space Mono', fontSize: 9.92);
 
-  static const glyph = TextStyle(
-    fontFamily: 'Space Mono',
-    fontSize: 10.56,
-  );
+  static const glyph = TextStyle(fontFamily: 'Space Mono', fontSize: 10.56);
 
-  static const glyphDown = TextStyle(
-    fontFamily: 'Space Mono',
-    fontSize: 9.92,
-  );
+  static const glyphDown = TextStyle(fontFamily: 'Space Mono', fontSize: 9.92);
 
   static const downLabel = TextStyle(
     fontFamily: 'Space Mono',

@@ -8,9 +8,14 @@ import 'grain_overlay.dart';
 
 class WindowFrame extends StatelessWidget {
   final String marginMetaText;
-  final Widget Function(BuildContext context, double containerWidth) contentBuilder;
+  final Widget Function(BuildContext context, double containerWidth)
+  contentBuilder;
 
-  const WindowFrame({super.key, required this.marginMetaText, required this.contentBuilder});
+  const WindowFrame({
+    super.key,
+    required this.marginMetaText,
+    required this.contentBuilder,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -20,7 +25,8 @@ class WindowFrame extends StatelessWidget {
       children: [
         Column(
           children: [
-            if (Platform.isMacOS) _ChromeStrip(edge: t.edge, lineSoft: t.lineSoft),
+            if (Platform.isMacOS)
+              _ChromeStrip(edge: t.edge, lineSoft: t.lineSoft),
             Expanded(
               child: LayoutBuilder(
                 builder: (context, constraints) {
@@ -44,7 +50,10 @@ class WindowFrame extends StatelessWidget {
                             opacity: 0.035,
                             child: Text(
                               '監',
-                              style: AppTypography.watermark.copyWith(fontSize: watermarkSize, color: t.ink),
+                              style: AppTypography.watermark.copyWith(
+                                fontSize: watermarkSize,
+                                color: t.ink,
+                              ),
                             ),
                           ),
                         ),
@@ -60,7 +69,9 @@ class WindowFrame extends StatelessWidget {
                               marginMetaText.toUpperCase(),
                               softWrap: false,
                               overflow: TextOverflow.visible,
-                              style: AppTypography.marginMeta.copyWith(color: t.faint),
+                              style: AppTypography.marginMeta.copyWith(
+                                color: t.faint,
+                              ),
                             ),
                           ),
                         ),
@@ -85,10 +96,10 @@ class _ChromeStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        height: 28,
-        decoration: BoxDecoration(
-          color: edge,
-          border: Border(bottom: BorderSide(color: lineSoft, width: 1)),
-        ),
-      );
+    height: 28,
+    decoration: BoxDecoration(
+      color: edge,
+      border: Border(bottom: BorderSide(color: lineSoft, width: 1)),
+    ),
+  );
 }

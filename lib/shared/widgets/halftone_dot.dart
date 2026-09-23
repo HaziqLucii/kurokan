@@ -36,7 +36,10 @@ class _HalftonePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width * _centerFraction, size.height * _centerFraction);
+    final center = Offset(
+      size.width * _centerFraction,
+      size.height * _centerFraction,
+    );
     final paint = Paint();
     for (double y = _pitch / 2; y < size.height; y += _pitch) {
       for (double x = _pitch / 2; x < size.width; x += _pitch) {
@@ -50,5 +53,6 @@ class _HalftonePainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _HalftonePainter oldDelegate) => oldDelegate.ink != ink;
+  bool shouldRepaint(covariant _HalftonePainter oldDelegate) =>
+      oldDelegate.ink != ink;
 }

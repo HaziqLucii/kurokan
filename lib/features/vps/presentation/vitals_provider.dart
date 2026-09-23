@@ -10,7 +10,11 @@ import '../domain/vitals_source.dart';
 final vitalsSourceProvider = Provider<VitalsSource>((ref) {
   final config = ref.watch(appConfigProvider);
   final client = ref.watch(httpClientProvider);
-  return WebdockSource(slug: config.webdock.slug, apiToken: config.webdock.apiToken, client: client);
+  return WebdockSource(
+    slug: config.webdock.slug,
+    apiToken: config.webdock.apiToken,
+    client: client,
+  );
 });
 
 final vitalsProvider = polled<HostVitals>(

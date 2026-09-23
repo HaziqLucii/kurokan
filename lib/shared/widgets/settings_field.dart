@@ -23,14 +23,19 @@ class SettingsField extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = context.tokens;
     return Container(
-      decoration: BoxDecoration(border: Border(bottom: BorderSide(color: t.lineSoft, width: 1))),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: t.lineSoft, width: 1)),
+      ),
       padding: const EdgeInsets.symmetric(vertical: 10),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           SizedBox(
             width: 150,
-            child: Text(label.toUpperCase(), style: AppTypography.kvLabel.copyWith(color: t.muted)),
+            child: Text(
+              label.toUpperCase(),
+              style: AppTypography.kvLabel.copyWith(color: t.muted),
+            ),
           ),
           Expanded(
             child: TextField(

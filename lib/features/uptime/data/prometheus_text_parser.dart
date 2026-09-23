@@ -15,8 +15,12 @@ class _Accumulator {
 class PrometheusMetricsParser {
   static const _monitorPrefix = 'monitor_';
 
-  static final _lineRegex = RegExp(r'^([a-zA-Z_:][a-zA-Z0-9_:]*)(\{(.*)\})?\s+(\S+)$');
-  static final _labelRegex = RegExp(r'([a-zA-Z_][a-zA-Z0-9_]*)="((?:[^"\\]|\\.)*)"');
+  static final _lineRegex = RegExp(
+    r'^([a-zA-Z_:][a-zA-Z0-9_:]*)(\{(.*)\})?\s+(\S+)$',
+  );
+  static final _labelRegex = RegExp(
+    r'([a-zA-Z_][a-zA-Z0-9_]*)="((?:[^"\\]|\\.)*)"',
+  );
 
   List<MonitorStatus> parse(String body) {
     final byKey = <String, _Accumulator>{};
@@ -60,7 +64,9 @@ class PrometheusMetricsParser {
         case 'monitor_status':
           acc.state = _stateFromCode(value);
         case 'monitor_response_time':
-          acc.responseTime = value < 0 ? null : Duration(milliseconds: value.round());
+          acc.responseTime = value < 0
+              ? null
+              : Duration(milliseconds: value.round());
         case 'monitor_uptime_ratio':
           if (labels['window'] == '1d') acc.uptime24h = value;
         case 'monitor_cert_days_remaining':
@@ -71,7 +77,9 @@ class PrometheusMetricsParser {
     }
 
     if (!matchedAnyLine) {
-      throw const FormatException('no Prometheus metrics found in response body');
+      throw const FormatException(
+        'no Prometheus metrics found in response body',
+      );
     }
 
     return [

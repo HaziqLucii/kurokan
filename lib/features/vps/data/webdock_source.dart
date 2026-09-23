@@ -16,7 +16,11 @@ class WebdockSource implements VitalsSource {
   final String apiToken;
   final http.Client client;
 
-  const WebdockSource({required this.slug, required this.apiToken, required this.client});
+  const WebdockSource({
+    required this.slug,
+    required this.apiToken,
+    required this.client,
+  });
 
   @override
   Future<HostVitals> fetch() async {
@@ -54,7 +58,8 @@ class WebdockSource implements VitalsSource {
     );
   }
 
-  Gauge _gauge(ResourceUsageMetricStatusDTO dto, {required String unit}) => Gauge(
+  Gauge _gauge(ResourceUsageMetricStatusDTO dto, {required String unit}) =>
+      Gauge(
         used: dto.used,
         allowed: dto.allowed,
         percentUsed: dto.percentUsed,
@@ -63,10 +68,10 @@ class WebdockSource implements VitalsSource {
       );
 
   UsageLevel _levelFromString(String level) => switch (level) {
-        'warn' => UsageLevel.warn,
-        'crit' => UsageLevel.crit,
-        _ => UsageLevel.ok,
-      };
+    'warn' => UsageLevel.warn,
+    'crit' => UsageLevel.crit,
+    _ => UsageLevel.ok,
+  };
 
   Future<Map<String, dynamic>> _get(String path) async {
     final uri = Uri.parse('$_baseUrl$path');
@@ -79,7 +84,9 @@ class WebdockSource implements VitalsSource {
     } on TimeoutException {
       throw const TimeoutError();
     } on SocketException catch (e) {
-      throw NetworkError('${e.osError?.message ?? e.message} ${uri.host}:${uri.port}');
+      throw NetworkError(
+        '${e.osError?.message ?? e.message} ${uri.host}:${uri.port}',
+      );
     } on HttpException catch (e) {
       throw NetworkError('${e.message} ${uri.host}:${uri.port}');
     } on http.ClientException catch (e) {

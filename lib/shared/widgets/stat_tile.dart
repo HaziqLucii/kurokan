@@ -41,7 +41,9 @@ class StatTile extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
       decoration: BoxDecoration(
         color: crit ? t.ink : t.paper,
-        border: warn ? Border(top: BorderSide(color: statusWarnColor, width: 2)) : null,
+        border: warn
+            ? Border(top: BorderSide(color: statusWarnColor, width: 2))
+            : null,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -56,7 +58,9 @@ class StatTile extends StatelessWidget {
               children: [
                 TextSpan(
                   text: unit,
-                  style: AppTypography.tileUnit.copyWith(color: crit ? fg.withValues(alpha: 0.7) : t.muted),
+                  style: AppTypography.tileUnit.copyWith(
+                    color: crit ? fg.withValues(alpha: 0.7) : t.muted,
+                  ),
                 ),
               ],
             ),
@@ -66,14 +70,19 @@ class StatTile extends StatelessWidget {
             labelText,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: AppTypography.tileLabel.copyWith(color: fg, fontWeight: crit ? FontWeight.w700 : FontWeight.normal),
+            style: AppTypography.tileLabel.copyWith(
+              color: fg,
+              fontWeight: crit ? FontWeight.w700 : FontWeight.normal,
+            ),
           ),
           const SizedBox(height: 3),
           Text(
             sub,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: AppTypography.tileSub.copyWith(color: crit ? fg.withValues(alpha: 0.72) : t.muted),
+            style: AppTypography.tileSub.copyWith(
+              color: crit ? fg.withValues(alpha: 0.72) : t.muted,
+            ),
           ),
         ],
       ),

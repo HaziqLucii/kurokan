@@ -36,7 +36,9 @@ class PanelFrame extends StatelessWidget {
         ),
         Container(
           padding: const EdgeInsets.only(top: 8),
-          decoration: BoxDecoration(border: Border(top: BorderSide(color: t.line, width: 1))),
+          decoration: BoxDecoration(
+            border: Border(top: BorderSide(color: t.line, width: 1)),
+          ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [

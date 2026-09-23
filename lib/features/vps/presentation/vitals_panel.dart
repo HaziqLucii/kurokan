@@ -18,29 +18,31 @@ String _time(DateTime t) =>
     '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}:${t.second.toString().padLeft(2, '0')}';
 
 String _errorKind(Object? error) => switch (error) {
-      NetworkError _ => 'NETWORK',
-      AuthError _ => 'AUTH',
-      HttpError _ => 'HTTP',
-      ParseError _ => 'PARSE',
-      TimeoutError _ => 'TIMEOUT',
-      _ => 'ERROR',
-    };
+  NetworkError _ => 'NETWORK',
+  AuthError _ => 'AUTH',
+  HttpError _ => 'HTTP',
+  ParseError _ => 'PARSE',
+  TimeoutError _ => 'TIMEOUT',
+  _ => 'ERROR',
+};
 
 String _errorMessage(Object? error) => switch (error) {
-      NetworkError e => 'NETWORK · ${e.detail} · CHECK webdock.slug',
-      AuthError e => 'AUTH · ${e.status} FROM WEBDOCK · CHECK webdock.apiToken',
-      HttpError e => 'HTTP · ${e.status} FROM WEBDOCK',
-      ParseError e => 'PARSE · ${e.detail}',
-      TimeoutError _ => 'TIMEOUT · 10S',
-      _ => 'UNKNOWN ERROR',
-    };
+  NetworkError e => 'NETWORK · ${e.detail} · CHECK webdock.slug',
+  AuthError e => 'AUTH · ${e.status} FROM WEBDOCK · CHECK webdock.apiToken',
+  HttpError e => 'HTTP · ${e.status} FROM WEBDOCK',
+  ParseError e => 'PARSE · ${e.detail}',
+  TimeoutError _ => 'TIMEOUT · 10S',
+  _ => 'UNKNOWN ERROR',
+};
 
 String _statusGlyphFor(String status) => switch (status) {
-      'running' => StatusGlyphs.up,
-      'stopped' || 'suspended' => StatusGlyphs.muted,
-      'error' => StatusGlyphs.down,
-      _ => StatusGlyphs.pending, // provisioning/starting/rebooting/stopping/reinstalling
-    };
+  'running' => StatusGlyphs.up,
+  'stopped' || 'suspended' => StatusGlyphs.muted,
+  'error' => StatusGlyphs.down,
+  _ =>
+    StatusGlyphs
+        .pending, // provisioning/starting/rebooting/stopping/reinstalling
+};
 
 ({double value, String unit}) _networkScale(double allowedGiB) =>
     allowedGiB >= 1024 ? (value: 1024, unit: 'TB') : (value: 1, unit: 'GB');
@@ -83,7 +85,8 @@ class VitalsPanel extends ConsumerWidget {
         footerLeft = 'Refreshing';
       } else if (hasError) {
         dimmed = true;
-        footerLeft = 'Stale · Last ok ${_time(sample.fetchedAt)} · ${_errorKind(async.error)}';
+        footerLeft =
+            'Stale · Last ok ${_time(sample.fetchedAt)} · ${_errorKind(async.error)}';
       } else {
         footerLeft = 'Fetched ${_time(sample.fetchedAt)}';
       }
@@ -127,7 +130,10 @@ class _VitalsBody extends StatelessWidget {
             Expanded(
               child: LayoutBuilder(
                 builder: (context, constraints) {
-                  final columns = (constraints.maxWidth / 151).floor().clamp(1, 8);
+                  final columns = (constraints.maxWidth / 151).floor().clamp(
+                    1,
+                    8,
+                  );
                   return GridView.count(
                     crossAxisCount: columns,
                     mainAxisSpacing: 1,
@@ -139,21 +145,24 @@ class _VitalsBody extends StatelessWidget {
                         number: vitals.cpu.percentUsed.round().toString(),
                         unit: '%',
                         label: 'CPU',
-                        sub: '${vitals.cpu.used.toStringAsFixed(1)} / ${vitals.cpu.allowed.toStringAsFixed(1)} ${vitals.cpu.unit}',
+                        sub:
+                            '${vitals.cpu.used.toStringAsFixed(1)} / ${vitals.cpu.allowed.toStringAsFixed(1)} ${vitals.cpu.unit}',
                         level: vitals.cpu.level,
                       ),
                       StatTile(
                         number: vitals.memory.percentUsed.round().toString(),
                         unit: '%',
                         label: 'Mem',
-                        sub: '${(vitals.memory.used / 1024).toStringAsFixed(1)} / ${(vitals.memory.allowed / 1024).toStringAsFixed(1)} GB',
+                        sub:
+                            '${(vitals.memory.used / 1024).toStringAsFixed(1)} / ${(vitals.memory.allowed / 1024).toStringAsFixed(1)} GB',
                         level: vitals.memory.level,
                       ),
                       StatTile(
                         number: vitals.disk.percentUsed.round().toString(),
                         unit: '%',
                         label: 'Disk',
-                        sub: '${(vitals.disk.used / 1024).toStringAsFixed(1)} / ${(vitals.disk.allowed / 1024).toStringAsFixed(1)} GB',
+                        sub:
+                            '${(vitals.disk.used / 1024).toStringAsFixed(1)} / ${(vitals.disk.allowed / 1024).toStringAsFixed(1)} GB',
                         level: vitals.disk.level,
                       ),
                       _networkTile(vitals.network),
@@ -177,7 +186,8 @@ class _VitalsBody extends StatelessWidget {
       number: total.toStringAsFixed(1),
       unit: ' ${scale.unit}',
       label: 'Network',
-      sub: '${total.toStringAsFixed(1)} / ${allowed.toStringAsFixed(1)} ${scale.unit} · MTD',
+      sub:
+          '${total.toStringAsFixed(1)} / ${allowed.toStringAsFixed(1)} ${scale.unit} · MTD',
       level: network.level,
     );
   }

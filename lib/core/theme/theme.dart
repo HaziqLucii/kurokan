@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import 'tokens.dart';
 
 ThemeData buildAppTheme(Brightness brightness) {
-  final tokens = brightness == Brightness.dark ? DesignTokens.dark : DesignTokens.light;
+  final tokens = brightness == Brightness.dark
+      ? DesignTokens.dark
+      : DesignTokens.light;
   return ThemeData(
     brightness: brightness,
     fontFamily: 'Space Mono',

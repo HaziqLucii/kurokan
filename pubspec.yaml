@@ -13,6 +13,7 @@ dependencies:
   flutter_riverpod: ^3.4.3
   http: ^1.6.0
   clock: ^1.1.2
+  macos_window_utils: ^1.9.1
 
 dev_dependencies:
   flutter_test:

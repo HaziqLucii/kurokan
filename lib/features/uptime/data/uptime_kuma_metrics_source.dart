@@ -20,8 +20,8 @@ class UptimeKumaMetricsSource implements MonitorSource {
     required this.apiKey,
     required this.client,
     PrometheusMetricsParser? parser,
-  })  : baseUrl = Uri.parse(url),
-        _parser = parser ?? PrometheusMetricsParser();
+  }) : baseUrl = Uri.parse(url),
+       _parser = parser ?? PrometheusMetricsParser();
 
   @override
   Future<List<MonitorStatus>> fetch() async {
@@ -36,7 +36,9 @@ class UptimeKumaMetricsSource implements MonitorSource {
     } on TimeoutException {
       throw const TimeoutError();
     } on SocketException catch (e) {
-      throw NetworkError('${e.osError?.message ?? e.message} ${uri.host}:${uri.port}');
+      throw NetworkError(
+        '${e.osError?.message ?? e.message} ${uri.host}:${uri.port}',
+      );
     } on HttpException catch (e) {
       throw NetworkError('${e.message} ${uri.host}:${uri.port}');
     } on http.ClientException catch (e) {
