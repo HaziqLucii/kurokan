@@ -62,8 +62,9 @@ from the old path on the machine already running this app), the
 `KUROKAN_CONFIG` override env var (renamed from `INFRA_MONITOR_CONFIG` for
 consistency — this app has one user, so the breaking rename costs nothing),
 and app icon (kanji-seal concept from `design/Icon.dc.html`, dark theme).
-The GitHub repo name (`infra-monitor-dashboard`) was deliberately left
-alone; it's still an accurate description of what the repo contains.
+The GitHub repo name was initially left as `infra-monitor-dashboard`
+(still an accurate description) but later renamed to `kurokan` on request,
+to match the app name for profile pinning. GitHub redirects the old URL.
 
 ## Design deviations D1–D7
 
