@@ -35,8 +35,8 @@ That is what keeps CocoaPods and `libsecret` off the toolchain requirements.
 ## 2026-09-23 — Real-world deviations from the plan's Uptime Kuma assumptions
 
 The plan verified `/metrics` shape against Uptime Kuma 2.5.5 source. The
-actual production instance (`status.example.tld`) runs 1.23.17 (confirmed
-via the `app_version` metric) and its `/metrics` has neither a `monitor_id`
+actual production instance runs 1.23.17 (confirmed via the `app_version`
+metric) and its `/metrics` has neither a `monitor_id`
 label nor any `monitor_uptime_ratio` family. Monitors are joined by the
 full label set (name/type/url/hostname/port), not a numeric id, and
 `uptime24h` stays null against this instance. See
