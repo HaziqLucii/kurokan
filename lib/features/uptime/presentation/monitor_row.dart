@@ -33,7 +33,7 @@ class MonitorRow extends StatelessWidget {
       return _DownRow(monitor: monitor, ink: t.ink, paper: t.paper);
     }
 
-    final muted = monitor.state == MonitorState.pending || monitor.state == MonitorState.maintenance;
+    final glyphColor = monitor.state == MonitorState.up ? statusUpColor : t.muted;
     return Container(
       height: 32,
       padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -42,7 +42,7 @@ class MonitorRow extends StatelessWidget {
         children: [
           SizedBox(
             width: monitorRowColumnWidths[0],
-            child: Text(_glyphFor(monitor.state), style: AppTypography.glyph.copyWith(color: muted ? t.muted : t.ink)),
+            child: Text(_glyphFor(monitor.state), style: AppTypography.glyph.copyWith(color: glyphColor)),
           ),
           Expanded(
             child: Text(
@@ -131,7 +131,7 @@ class _DownRow extends StatelessWidget {
         children: [
           SizedBox(
             width: monitorRowColumnWidths[0],
-            child: Text('■', style: AppTypography.glyphDown.copyWith(color: paper)),
+            child: Text('■', style: AppTypography.glyphDown.copyWith(color: statusDownColor)),
           ),
           Expanded(
             child: Text(

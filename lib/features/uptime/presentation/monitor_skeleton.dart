@@ -16,7 +16,7 @@ class MonitorSkeleton extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _HeaderRow(line: t.line, faint: t.faint),
+        MonitorColumnHeader(line: t.line, faint: t.faint),
         Expanded(
           child: ListView(
             physics: const ClampingScrollPhysics(),
@@ -31,10 +31,10 @@ class MonitorSkeleton extends StatelessWidget {
   }
 }
 
-class _HeaderRow extends StatelessWidget {
+class MonitorColumnHeader extends StatelessWidget {
   final Color line;
   final Color faint;
-  const _HeaderRow({required this.line, required this.faint});
+  const MonitorColumnHeader({super.key, required this.line, required this.faint});
 
   @override
   Widget build(BuildContext context) {

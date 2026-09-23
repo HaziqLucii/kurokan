@@ -68,6 +68,16 @@ class DesignTokens {
   );
 }
 
+// The only accent colors in the app, deliberately scoped to status
+// indicators (monitor up/down dots, vitals warn/crit) — everything else
+// stays monochrome. Muted rather than neon Material red/green/amber to sit
+// inside the warm-monochrome palette instead of clashing with it. Same
+// values in both themes: mid-luminance hues read fine against both a
+// near-black and a near-white paper.
+const statusUpColor = Color(0xFF6FA073);
+const statusWarnColor = Color(0xFFC79A4B);
+const statusDownColor = Color(0xFFC15B52);
+
 class DesignTokensExtension extends ThemeExtension<DesignTokensExtension> {
   final DesignTokens tokens;
   const DesignTokensExtension(this.tokens);

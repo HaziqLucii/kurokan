@@ -26,6 +26,11 @@ class StatTile extends StatelessWidget {
     final crit = level == UsageLevel.crit;
     final warn = level == UsageLevel.warn;
     final fg = crit ? t.paper : t.ink;
+    final numberColor = switch (level) {
+      UsageLevel.crit => statusDownColor,
+      UsageLevel.warn => statusWarnColor,
+      UsageLevel.ok => fg,
+    };
     final labelText = switch (level) {
       UsageLevel.crit => '■ ${label.toUpperCase()} · CRIT',
       UsageLevel.warn => '! ${label.toUpperCase()}',
@@ -36,7 +41,7 @@ class StatTile extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
       decoration: BoxDecoration(
         color: crit ? t.ink : t.paper,
-        border: warn ? Border(top: BorderSide(color: t.lineStrong, width: 2)) : null,
+        border: warn ? Border(top: BorderSide(color: statusWarnColor, width: 2)) : null,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -47,7 +52,7 @@ class StatTile extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             text: TextSpan(
               text: number,
-              style: AppTypography.tileNum.copyWith(color: fg),
+              style: AppTypography.tileNum.copyWith(color: numberColor),
               children: [
                 TextSpan(
                   text: unit,

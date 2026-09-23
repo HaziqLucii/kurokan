@@ -1,8 +1,10 @@
+import 'package:clock/clock.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/config/config_provider.dart';
 import '../../../core/net/fetch_error.dart';
+import '../../../core/theme/tokens.dart';
 import '../../../shared/widgets/err_block.dart';
 import '../../dashboard/panel_frame.dart';
 import '../domain/monitor_status.dart';
@@ -56,7 +58,7 @@ class MonitorPanel extends ConsumerWidget {
       body = const MonitorSkeleton();
     } else if (hasError && !hasValue) {
       tag = '—';
-      footerLeft = 'Error · ${_time(DateTime.now())}';
+      footerLeft = 'Error · ${_time(clock.now())}';
       footerRight = 'Retry ${pollSeconds}s';
       body = ErrBlock(
         message: _errorMessage(async.error),
@@ -78,9 +80,18 @@ class MonitorPanel extends ConsumerWidget {
       } else {
         footerLeft = 'Fetched ${_time(sample.fetchedAt)}';
       }
-      body = ListView.builder(
-        itemCount: monitors.length,
-        itemBuilder: (context, i) => MonitorRow(monitor: monitors[i]),
+      final t = context.tokens;
+      body = Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          MonitorColumnHeader(line: t.line, faint: t.faint),
+          Expanded(
+            child: ListView.builder(
+              itemCount: monitors.length,
+              itemBuilder: (context, i) => MonitorRow(monitor: monitors[i]),
+            ),
+          ),
+        ],
       );
     }
 
