@@ -1,0 +1,30 @@
+{
+  "disk": {
+    "allowed": 47698,
+    "lastSamplings": { "amount": 34500, "timestamp": "2026-09-23T10:30:00Z" }
+  },
+  "network": {
+    "total": 5,
+    "allowed": 1863,
+    "latestIngressSampling": { "amount": 120, "timestamp": "2026-09-23T10:30:00Z" },
+    "latestEgressSampling": { "amount": 80, "timestamp": "2026-09-23T10:30:00Z" }
+  },
+  "cpu": {
+    "latestUsageSampling": { "amount": 882, "timestamp": "2026-09-23T10:30:00Z" }
+  },
+  "processes": {
+    "latestProcessesSampling": { "amount": 214, "timestamp": "2026-09-23T10:30:00Z" }
+  },
+  "memory": {
+    "latestUsageSampling": { "amount": 5478, "timestamp": "2026-09-23T10:30:00Z" }
+  },
+  "resourceUsageStatus": {
+    "hasIssues": true,
+    "level": "warn",
+    "network": { "used": 5, "allowed": 1863, "percentUsed": 0.27, "warnThresholdPercent": 80, "criticalThresholdPercent": 95, "thresholdHit": false, "level": "ok" },
+    "disk": { "used": 34500, "allowed": 47698, "percentUsed": 72.33, "warnThresholdPercent": 70, "criticalThresholdPercent": 90, "thresholdHit": true, "level": "warn" },
+    "memory": { "used": 5478, "allowed": 7629, "percentUsed": 71.8, "warnThresholdPercent": 80, "criticalThresholdPercent": 95, "thresholdHit": false, "level": "ok" },
+    "cpu": { "used": 882, "allowed": 1800, "percentUsed": 49, "warnThresholdPercent": 80, "criticalThresholdPercent": 95, "thresholdHit": false, "level": "ok" },
+    "problemResources": [{ "resource": "disk", "level": "warn" }]
+  }
+}

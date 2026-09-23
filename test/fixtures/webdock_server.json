@@ -1,0 +1,18 @@
+{
+  "slug": "demo-server",
+  "name": "Demo Server",
+  "date": "2026-04-07T14:10:10Z",
+  "location": "dk-mid",
+  "image": "ubuntu-2404-noble",
+  "profile": "epyc-4cpu-8ram-100disk-1net",
+  "ipv4": "203.0.113.10",
+  "ipv6": null,
+  "status": "running",
+  "pendingDeletion": false,
+  "virtualization": "kvm",
+  "webServer": "Nginx",
+  "aliases": [],
+  "snapshotRunTime": 0,
+  "description": "",
+  "WordPressLockDown": false
+}
