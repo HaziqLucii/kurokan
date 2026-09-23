@@ -66,7 +66,10 @@ class _AppRootState extends State<AppRoot> {
     }
     return ProviderScope(
       key: ValueKey(_gen),
-      overrides: [appConfigProvider.overrideWithValue(config)],
+      overrides: [
+        appConfigProvider.overrideWithValue(config),
+        configPathProvider.overrideWithValue(_loader.filePath),
+      ],
       child: const App(),
     );
   }

@@ -3,11 +3,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/config/app_config.dart';
 import '../../core/config/config_provider.dart';
 import '../../core/theme/tokens.dart';
 import '../../shared/widgets/dossier_button.dart';
 import '../../shared/widgets/window_frame.dart';
 import '../../version.dart';
+import '../settings/settings_screen.dart';
 import '../uptime/presentation/monitor_panel.dart';
 import '../uptime/presentation/monitors_provider.dart';
 import '../vps/presentation/vitals_panel.dart';
@@ -40,6 +42,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     _lastManualRefresh = now;
     ref.invalidate(monitorsProvider);
     ref.invalidate(vitalsProvider);
+  }
+
+  void _openSettings(AppConfig config, String configPath) {
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => SettingsScreen(initial: config, configPath: configPath),
+    ));
   }
 
   @override
@@ -81,6 +89,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   refreshLabel: refreshLabel,
                   refreshVisual: refreshVisual,
                   onRefresh: initialLoading ? null : _handleRefresh,
+                  onSettings: () => _openSettings(config, ref.read(configPathProvider)),
                 ),
                 const SizedBox(height: 20),
                 Expanded(

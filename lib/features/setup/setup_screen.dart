@@ -12,6 +12,7 @@ import '../../shared/widgets/panel_title.dart';
 import '../../shared/widgets/window_frame.dart';
 import '../../version.dart';
 import '../dashboard/dashboard_header.dart';
+import '../settings/settings_screen.dart';
 
 const _expectedShapeJson = '''
 {
@@ -78,7 +79,10 @@ class SetupScreen extends StatelessWidget {
                       children: [
                         Expanded(flex: 62, child: _ConfigPanel(configPath: configPath, error: error)),
                         const SizedBox(width: 40),
-                        Expanded(flex: 38, child: _SetupPanel(onOpenFolder: onOpenFolder)),
+                        Expanded(
+                          flex: 38,
+                          child: _SetupPanel(onOpenFolder: onOpenFolder, configPath: configPath),
+                        ),
                       ],
                     ),
                   ),
@@ -169,8 +173,9 @@ class _ConfigPanel extends StatelessWidget {
 
 class _SetupPanel extends StatelessWidget {
   final VoidCallback onOpenFolder;
+  final String configPath;
 
-  const _SetupPanel({required this.onOpenFolder});
+  const _SetupPanel({required this.onOpenFolder, required this.configPath});
 
   @override
   Widget build(BuildContext context) {
@@ -188,9 +193,18 @@ class _SetupPanel extends StatelessWidget {
                   for (var i = 0; i < _setupSteps.length; i++)
                     _StepRow(index: i + 1, text: _setupSteps[i], lineSoft: t.lineSoft, faint: t.faint, ink: t.ink),
                   const SizedBox(height: 16),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: DossierButton(label: 'Open config folder', onPressed: onOpenFolder),
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 12,
+                    children: [
+                      DossierButton(
+                        label: 'Set up now',
+                        onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+                          builder: (_) => SettingsScreen(initial: null, configPath: configPath),
+                        )),
+                      ),
+                      DossierButton(label: 'Open config folder', onPressed: onOpenFolder),
+                    ],
                   ),
                 ],
               ),

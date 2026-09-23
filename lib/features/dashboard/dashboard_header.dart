@@ -10,6 +10,7 @@ class DashboardHeader extends StatelessWidget {
   final String refreshLabel;
   final DossierButtonVisual refreshVisual;
   final VoidCallback? onRefresh;
+  final VoidCallback? onSettings;
 
   const DashboardHeader({
     super.key,
@@ -18,6 +19,7 @@ class DashboardHeader extends StatelessWidget {
     required this.refreshLabel,
     required this.refreshVisual,
     required this.onRefresh,
+    this.onSettings,
   });
 
   @override
@@ -51,7 +53,16 @@ class DashboardHeader extends StatelessWidget {
                   style: AppTypography.lastLabel.copyWith(color: t.muted),
                 ),
                 const SizedBox(height: 10),
-                DossierButton(label: refreshLabel, onPressed: onRefresh, visual: refreshVisual),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (onSettings != null) ...[
+                      DossierButton(label: 'Settings', onPressed: onSettings),
+                      const SizedBox(width: 8),
+                    ],
+                    DossierButton(label: refreshLabel, onPressed: onRefresh, visual: refreshVisual),
+                  ],
+                ),
               ],
             ),
           ),
