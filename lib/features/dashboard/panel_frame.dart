@@ -40,8 +40,21 @@ class PanelFrame extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(footerLeft.toUpperCase(), style: AppTypography.footer.copyWith(color: t.ink)),
-              Text(footerRight.toUpperCase(), style: AppTypography.footer.copyWith(color: t.muted)),
+              Expanded(
+                child: Text(
+                  footerLeft.toUpperCase(),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTypography.footer.copyWith(color: t.ink),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                footerRight.toUpperCase(),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppTypography.footer.copyWith(color: t.muted),
+              ),
             ],
           ),
         ),

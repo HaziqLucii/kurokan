@@ -1,4 +1,6 @@
+import 'package:clock/clock.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/config/config_provider.dart';
@@ -7,44 +9,93 @@ import '../../shared/widgets/dossier_button.dart';
 import '../../shared/widgets/window_frame.dart';
 import '../../version.dart';
 import '../uptime/presentation/monitor_panel.dart';
+import '../uptime/presentation/monitors_provider.dart';
 import '../vps/presentation/vitals_panel.dart';
+import '../vps/presentation/vitals_provider.dart';
 import 'dashboard_header.dart';
+import 'last_refresh_provider.dart';
 
-class DashboardScreen extends ConsumerWidget {
+const _manualRefreshDebounce = Duration(seconds: 5);
+
+String _formatTime(DateTime? t) {
+  if (t == null) return '--:--:--';
+  return '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}:${t.second.toString().padLeft(2, '0')}';
+}
+
+class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends ConsumerState<DashboardScreen> {
+  DateTime? _lastManualRefresh;
+
+  void _handleRefresh() {
+    final now = clock.now();
+    if (_lastManualRefresh != null && now.difference(_lastManualRefresh!) < _manualRefreshDebounce) {
+      return;
+    }
+    _lastManualRefresh = now;
+    ref.invalidate(monitorsProvider);
+    ref.invalidate(vitalsProvider);
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final config = ref.watch(appConfigProvider);
     final t = context.tokens;
     final marginMeta = '${config.webdock.slug} · POLL ${config.pollInterval.inSeconds}S · V$appVersion';
 
-    return Material(
-      color: t.paper,
-      child: WindowFrame(
-        marginMetaText: marginMeta,
-        contentBuilder: (context, containerWidth) => Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            DashboardHeader(
-              containerWidth: containerWidth,
-              lastText: '--:--:--',
-              refreshLabel: '↻ Refresh',
-              refreshVisual: DossierButtonVisual.disabled,
-              onRefresh: null,
+    final monitorsAsync = ref.watch(monitorsProvider);
+    final vitalsAsync = ref.watch(vitalsProvider);
+    final initialLoading = (monitorsAsync.isLoading && !monitorsAsync.hasValue) ||
+        (vitalsAsync.isLoading && !vitalsAsync.hasValue);
+    final refreshing = monitorsAsync.isLoading || vitalsAsync.isLoading;
+
+    final refreshVisual = initialLoading
+        ? DossierButtonVisual.disabled
+        : refreshing
+            ? DossierButtonVisual.active
+            : DossierButtonVisual.idle;
+    final refreshLabel = refreshing && !initialLoading ? 'Refreshing' : '↻ Refresh';
+
+    return CallbackShortcuts(
+      bindings: {
+        LogicalKeySet(LogicalKeyboardKey.meta, LogicalKeyboardKey.keyR): _handleRefresh,
+        LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyR): _handleRefresh,
+      },
+      child: Focus(
+        autofocus: true,
+        child: Material(
+          color: t.paper,
+          child: WindowFrame(
+            marginMetaText: marginMeta,
+            contentBuilder: (context, containerWidth) => Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                DashboardHeader(
+                  containerWidth: containerWidth,
+                  lastText: _formatTime(ref.watch(lastRefreshProvider)),
+                  refreshLabel: refreshLabel,
+                  refreshVisual: refreshVisual,
+                  onRefresh: initialLoading ? null : _handleRefresh,
+                ),
+                const SizedBox(height: 20),
+                Expanded(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const Expanded(flex: 62, child: MonitorPanel()),
+                      const SizedBox(width: 40),
+                      const Expanded(flex: 38, child: VitalsPanel()),
+                    ],
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 20),
-            Expanded(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const Expanded(flex: 62, child: MonitorPanel()),
-                  const SizedBox(width: 40),
-                  const Expanded(flex: 38, child: VitalsPanel()),
-                ],
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );
