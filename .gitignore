@@ -46,3 +46,8 @@ app.*.map.json
 
 # Playwright MCP session artifacts
 .playwright-mcp/
+
+# Internal design mockups and planning docs; never tracked, may contain
+# real client/infra references.
+/design/
+/plans/
