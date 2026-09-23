@@ -1,2 +1,10 @@
 #include "../../Flutter/Flutter-Release.xcconfig"
 #include "Warnings.xcconfig"
+
+// Force an arm64-only Release build (also applies to Profile, which shares
+// this xcconfig). Universal (arm64+x86_64) builds hit a bug in this system's
+// `lipo`: `-verify_arch arm64 x86_64` (multiple archs at once) fails with
+// "requires exactly one input file", even though each arch verifies fine
+// individually and `lipo -info` shows both present. Personal app on Apple
+// Silicon only, so arm64-only is fine either way.
+ARCHS = arm64
