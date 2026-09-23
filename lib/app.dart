@@ -13,7 +13,7 @@ class App extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final config = ref.watch(appConfigProvider);
     return MaterialApp(
-      title: 'infra-monitor',
+      title: 'Kurokan',
       debugShowCheckedModeBanner: false,
       themeMode: _themeMode(config.theme),
       theme: buildAppTheme(Brightness.light),

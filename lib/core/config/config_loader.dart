@@ -10,9 +10,9 @@ class ConfigLoader {
   const ConfigLoader({required this.env, required this.home});
 
   String get filePath {
-    final override = env['INFRA_MONITOR_CONFIG'];
+    final override = env['KUROKAN_CONFIG'];
     if (override != null && override.isNotEmpty) return override;
-    return '$home/.config/infra-monitor/config.json';
+    return '$home/.config/kurokan/config.json';
   }
 
   String get dir {

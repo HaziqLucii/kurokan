@@ -1,17 +1,17 @@
-# infra_monitor
+# Kurokan (黒監)
 
-A new Flutter project.
+A single-window Flutter desktop dashboard that polls Uptime Kuma and
+Webdock.io read-only on an interval, replacing two daily browser tabs.
+Swiss-Japanese monochrome design. macOS first, Linux (CachyOS, GTK) second.
 
-## Getting Started
+See `docs/PLAN.md` for the full implementation plan and `docs/DECISIONS.md`
+for the decisions log.
 
-This project is a starting point for a Flutter application.
+## Getting started
 
-A few resources to get you started if this is your first Flutter project:
-
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+```
+cp /path/to/config.json ~/.config/kurokan/config.json   # see docs/PLAN.md section 5 for the shape
+make run
+make test
+make install-macos   # release build, copies Kurokan.app to /Applications
+```

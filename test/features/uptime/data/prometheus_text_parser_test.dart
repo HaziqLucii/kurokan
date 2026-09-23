@@ -1,8 +1,8 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:infra_monitor/features/uptime/data/prometheus_text_parser.dart';
-import 'package:infra_monitor/features/uptime/domain/monitor_status.dart';
+import 'package:kurokan/features/uptime/data/prometheus_text_parser.dart';
+import 'package:kurokan/features/uptime/domain/monitor_status.dart';
 
 void main() {
   final parser = PrometheusMetricsParser();

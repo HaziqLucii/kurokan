@@ -12,7 +12,7 @@ class _UserAgentClient extends http.BaseClient {
 
   @override
   Future<http.StreamedResponse> send(http.BaseRequest request) {
-    request.headers['User-Agent'] = 'infra-monitor/$appVersion';
+    request.headers['User-Agent'] = 'kurokan/$appVersion';
     return _inner.send(request);
   }
 

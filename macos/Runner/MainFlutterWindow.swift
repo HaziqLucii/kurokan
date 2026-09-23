@@ -10,7 +10,7 @@ class MainFlutterWindow: NSWindow {
 
     self.setContentSize(NSSize(width: 1100, height: 720))
     self.contentMinSize = NSSize(width: 800, height: 520)
-    self.title = "infra-monitor"
+    self.title = "Kurokan"
     self.center()
 
     self.titlebarAppearsTransparent = true

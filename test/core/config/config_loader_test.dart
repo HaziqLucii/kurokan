@@ -2,8 +2,8 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:infra_monitor/core/config/app_config.dart';
-import 'package:infra_monitor/core/config/config_loader.dart';
+import 'package:kurokan/core/config/app_config.dart';
+import 'package:kurokan/core/config/config_loader.dart';
 
 void main() {
   late Directory tempDir;
@@ -16,14 +16,14 @@ void main() {
     tempDir.deleteSync(recursive: true);
   });
 
-  test('INFRA_MONITOR_CONFIG overrides the default path and loads a valid file', () {
+  test('KUROKAN_CONFIG overrides the default path and loads a valid file', () {
     final file = File('${tempDir.path}/config.json');
     file.writeAsStringSync(jsonEncode({
       'webdock': {'slug': 'webdock-prod-01', 'apiToken': 'wd_secret'},
       'kuma': {'url': 'https://status.example.tld', 'apiKey': 'uk1_secret'},
     }));
 
-    final loader = ConfigLoader(env: {'INFRA_MONITOR_CONFIG': file.path}, home: '/unused');
+    final loader = ConfigLoader(env: {'KUROKAN_CONFIG': file.path}, home: '/unused');
     final config = loader.load();
 
     expect(loader.filePath, file.path);
@@ -32,20 +32,20 @@ void main() {
     expect(config.pollInterval, const Duration(seconds: 30));
   });
 
-  test('falls back to ~/.config/infra-monitor/config.json when no override is set', () {
+  test('falls back to ~/.config/kurokan/config.json when no override is set', () {
     final loader = ConfigLoader(env: const {}, home: '/home/haziq');
-    expect(loader.filePath, '/home/haziq/.config/infra-monitor/config.json');
-    expect(loader.dir, '/home/haziq/.config/infra-monitor');
+    expect(loader.filePath, '/home/haziq/.config/kurokan/config.json');
+    expect(loader.dir, '/home/haziq/.config/kurokan');
   });
 
   test('dir does not crash for a slash-less relative override path', () {
-    final loader = ConfigLoader(env: {'INFRA_MONITOR_CONFIG': 'config.json'}, home: '/unused');
+    final loader = ConfigLoader(env: {'KUROKAN_CONFIG': 'config.json'}, home: '/unused');
     expect(loader.dir, '.');
   });
 
   test('throws ConfigError naming the path when the file does not exist', () {
     final missingPath = '${tempDir.path}/missing.json';
-    final loader = ConfigLoader(env: {'INFRA_MONITOR_CONFIG': missingPath}, home: '/unused');
+    final loader = ConfigLoader(env: {'KUROKAN_CONFIG': missingPath}, home: '/unused');
 
     expect(
       loader.load,
@@ -60,7 +60,7 @@ void main() {
     final file = File('${tempDir.path}/config.json');
     file.writeAsStringSync('{not valid json');
 
-    final loader = ConfigLoader(env: {'INFRA_MONITOR_CONFIG': file.path}, home: '/unused');
+    final loader = ConfigLoader(env: {'KUROKAN_CONFIG': file.path}, home: '/unused');
 
     expect(
       loader.load,
@@ -78,7 +78,7 @@ void main() {
       'kuma': {'url': 'https://status.example.tld'},
     }));
 
-    final loader = ConfigLoader(env: {'INFRA_MONITOR_CONFIG': file.path}, home: '/unused');
+    final loader = ConfigLoader(env: {'KUROKAN_CONFIG': file.path}, home: '/unused');
 
     expect(
       loader.load,

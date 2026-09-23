@@ -49,7 +49,7 @@ class SetupScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'infra-monitor',
+      title: 'Kurokan',
       debugShowCheckedModeBanner: false,
       themeMode: ThemeMode.system,
       theme: buildAppTheme(Brightness.light),

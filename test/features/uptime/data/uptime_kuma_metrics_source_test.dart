@@ -5,10 +5,10 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:infra_monitor/core/net/fetch_error.dart';
-import 'package:infra_monitor/features/uptime/data/prometheus_text_parser.dart';
-import 'package:infra_monitor/features/uptime/data/uptime_kuma_metrics_source.dart';
-import 'package:infra_monitor/features/uptime/domain/monitor_status.dart';
+import 'package:kurokan/core/net/fetch_error.dart';
+import 'package:kurokan/features/uptime/data/prometheus_text_parser.dart';
+import 'package:kurokan/features/uptime/data/uptime_kuma_metrics_source.dart';
+import 'package:kurokan/features/uptime/domain/monitor_status.dart';
 
 const _validBody = '''
 monitor_status{monitor_name="Docs",monitor_type="http"} 1

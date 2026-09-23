@@ -32,7 +32,7 @@ class DashboardHeader extends StatelessWidget {
         children: [
           Expanded(
             child: Text(
-              'infra-monitor',
+              'kurokan',
               style: AppTypography.wordmarkBase.copyWith(
                 fontSize: wordmarkSize,
                 letterSpacing: wordmarkSize * -0.03,

@@ -1,5 +1,5 @@
-name: infra_monitor
-description: "infra-monitor-dashboard"
+name: kurokan
+description: "Kurokan: Swiss-Japanese monochrome desktop dashboard for Uptime Kuma + Webdock vitals"
 publish_to: 'none'
 
 version: 1.0.0+1

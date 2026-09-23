@@ -2,7 +2,7 @@ import 'package:clock/clock.dart';
 import 'package:fake_async/fake_async.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:infra_monitor/core/polling/polled.dart';
+import 'package:kurokan/core/polling/polled.dart';
 
 void main() {
   test('fetches again after one interval and stamps fetchedAt from the clock', () {

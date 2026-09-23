@@ -4,9 +4,9 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:infra_monitor/core/net/fetch_error.dart';
-import 'package:infra_monitor/features/vps/data/webdock_source.dart';
-import 'package:infra_monitor/features/vps/domain/host_vitals.dart';
+import 'package:kurokan/core/net/fetch_error.dart';
+import 'package:kurokan/features/vps/data/webdock_source.dart';
+import 'package:kurokan/features/vps/domain/host_vitals.dart';
 
 final _serverBody = File('test/fixtures/webdock_server.json').readAsStringSync();
 final _metricsBody = File('test/fixtures/webdock_metrics_now.json').readAsStringSync();

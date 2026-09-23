@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:infra_monitor/core/config/app_config.dart';
+import 'package:kurokan/core/config/app_config.dart';
 
 Map<String, dynamic> _fullJson() => {
       'webdock': {'slug': 'webdock-prod-01', 'apiToken': 'wd_secret'},
