@@ -456,8 +456,26 @@ been exercised by any test at any level; added one case per panel to
 `_PanelColumn`'s multi-panel branch. Left uncovered, and not new to this
 phase: `vitals_panel.dart`'s "stopped"/"suspended" status-glyph branch and
 `dashboard_screen.dart`'s settings-navigation callback, both pre-existing
-gaps untouched by this diff; `_EmptyHostsBody` stays untested for the
-reason given above (no current provider can reach it).
+gaps untouched by this diff.
+
+Codecov's patch-coverage comment on the PR caught 7 lines this initial
+pass missed, all inside code this phase actually added: the `?? entry.
+provider.toUpperCase()` tag-fallback in both `vitals_panel.dart` and
+`monitor_panel.dart`, `vitals_panel.dart`'s own stale-after-one-good-fetch
+footer (the existing stale-footer test only ever failed the *monitors*
+side, never the *vitals* side), and `_EmptyHostsBody`. The last of these
+had been dismissed above as "not reachable by any current provider," which
+is true of the real webdock/demo sources but wrong as a reason to skip
+testing it: a fake `HostsSource` returning `[]` (the same kind of test
+double already used throughout this file) reaches it in one line, no new
+test infrastructure needed. Likewise the tag-fallback branch is reachable
+by pointing a `SourceEntry.provider` at an id the registry doesn't
+recognize while overriding the source provider directly (bypassing the
+separate, legitimately-unreachable `!` in `hosts_provider.dart`/
+`uptime_provider.dart` that assumes `AppConfig.fromJson` already
+validated the id). Four more cases added to `dashboard_screen_test.dart`
+close all 7; the only remaining gap in these two files is the pre-existing
+"stopped"/"suspended" branch noted above.
 
 Found and fixed during `refuter` review: `config_store_io.dart`'s new
 basename filter (above) only checked `event.path`, which is correct for

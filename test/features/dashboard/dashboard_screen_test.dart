@@ -397,4 +397,168 @@ void main() {
       await _disposeTree(tester);
     },
   );
+
+  testWidgets(
+    'a host provider missing from the registry falls back to its raw id, '
+    'uppercased, as the panel tag',
+    (tester) async {
+      await _setWindowSize(tester);
+      const config = AppConfig(
+        hosts: [
+          SourceEntry(
+            kind: SourceKind.host,
+            id: 'mystery',
+            provider: 'mystery-provider',
+            settings: {},
+          ),
+        ],
+        uptime: [
+          SourceEntry(
+            kind: SourceKind.uptime,
+            id: 'kuma',
+            provider: 'kuma',
+            settings: {'url': 'https://kuma.test', 'apiKey': 'uk1_test'},
+          ),
+        ],
+      );
+      final monitors = _FakeMonitorSource(
+        () async => const [
+          MonitorStatus(
+            id: '1',
+            name: 'Up Service',
+            type: 'http',
+            state: MonitorState.up,
+          ),
+        ],
+      );
+      final vitals = _FakeHostsSource(() async => [_okVitals()]);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            appConfigProvider.overrideWithValue(config),
+            uptimeSourceProvider('kuma').overrideWithValue(monitors),
+            hostsSourceProvider('mystery').overrideWithValue(vitals),
+          ],
+          child: const App(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('MYSTERY-PROVIDER'), findsOneWidget);
+
+      await _disposeTree(tester);
+    },
+  );
+
+  testWidgets(
+    'an uptime provider missing from the registry falls back to its raw '
+    'id, uppercased, in the first-fetch-error message',
+    (tester) async {
+      await _setWindowSize(tester);
+      const config = AppConfig(
+        hosts: [
+          SourceEntry(
+            kind: SourceKind.host,
+            id: 'webdock',
+            provider: 'webdock',
+            settings: {'slug': 'test-server', 'apiToken': 'wd_test'},
+          ),
+        ],
+        uptime: [
+          SourceEntry(
+            kind: SourceKind.uptime,
+            id: 'mystery',
+            provider: 'mystery-provider',
+            settings: {},
+          ),
+        ],
+      );
+      final monitors = _FakeMonitorSource(
+        () async => throw const NetworkError('connection refused'),
+      );
+      final vitals = _FakeHostsSource(() async => [_okVitals()]);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            appConfigProvider.overrideWithValue(config),
+            uptimeSourceProvider('mystery').overrideWithValue(monitors),
+            hostsSourceProvider('webdock').overrideWithValue(vitals),
+          ],
+          child: const App(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.textContaining('CHECK MYSTERY-PROVIDER CONNECTIVITY'),
+        findsOneWidget,
+      );
+
+      await _disposeTree(tester);
+    },
+  );
+
+  testWidgets(
+    'a host source that goes stale after one good fetch shows the stale '
+    'footer for that panel specifically, not the error footer',
+    (tester) async {
+      await _setWindowSize(tester);
+      final monitors = _FakeMonitorSource(
+        () async => const [
+          MonitorStatus(
+            id: '1',
+            name: 'Up Service',
+            type: 'http',
+            state: MonitorState.up,
+          ),
+        ],
+      );
+      var callCount = 0;
+      final vitals = _FakeHostsSource(() async {
+        callCount++;
+        if (callCount == 1) return [_okVitals()];
+        throw const NetworkError('timeout');
+      });
+
+      await tester.pumpWidget(_harness(monitors: monitors, vitals: vitals));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('FETCHED'), findsNWidgets(2));
+      expect(find.textContaining('STALE'), findsNothing);
+
+      await tester.pump(const Duration(seconds: 30));
+      await tester.pumpAndSettle();
+
+      // Vitals goes stale; Monitors (still succeeding) stays fresh: the
+      // mirror image of the existing "monitors goes stale" case above.
+      expect(find.textContaining('STALE'), findsOneWidget);
+      expect(find.textContaining('FETCHED'), findsOneWidget);
+
+      await _disposeTree(tester);
+    },
+  );
+
+  testWidgets('a host source that returns zero hosts renders the empty-hosts '
+      'placeholder instead of crashing on .first', (tester) async {
+    await _setWindowSize(tester);
+    final monitors = _FakeMonitorSource(
+      () async => const [
+        MonitorStatus(
+          id: '1',
+          name: 'Up Service',
+          type: 'http',
+          state: MonitorState.up,
+        ),
+      ],
+    );
+    final vitals = _FakeHostsSource(() async => <HostVitals>[]);
+
+    await tester.pumpWidget(_harness(monitors: monitors, vitals: vitals));
+    await tester.pumpAndSettle();
+
+    expect(find.text('NO HOST DATA'), findsOneWidget);
+
+    await _disposeTree(tester);
+  });
 }
