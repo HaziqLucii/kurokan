@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/HaziqLucii/kurokan/main/docs/config.schema.json",
+  "title": "Kurokan config",
+  "description": "~/.config/kurokan/config.json",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "webdock": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "slug": {
+          "type": "string",
+          "description": "Webdock server slug (Servers -> your server -> Overview)."
+        },
+        "apiToken": {
+          "type": "string",
+          "description": "Webdock API token with read:servers scope."
+        }
+      },
+      "required": ["slug", "apiToken"]
+    },
+    "kuma": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "url": {
+          "type": "string",
+          "format": "uri",
+          "description": "Base URL of the Uptime Kuma instance."
+        },
+        "apiKey": {
+          "type": "string",
+          "description": "Uptime Kuma API key, sent as the Basic auth password against /metrics."
+        }
+      },
+      "required": ["url", "apiKey"]
+    },
+    "pollIntervalSec": {
+      "type": "integer",
+      "minimum": 1,
+      "default": 30,
+      "description": "How often both sources are polled, in seconds."
+    },
+    "theme": {
+      "type": "string",
+      "enum": ["system", "dark", "light"],
+      "default": "system"
+    }
+  },
+  "required": ["webdock", "kuma"]
+}
