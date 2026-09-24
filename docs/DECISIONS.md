@@ -581,3 +581,67 @@ renders. Confirmed by diffing the local macOS pixel-mismatch percentage
 against unmodified `main` before committing (both `2.22%`/`2.20%`,
 identical): the usual macOS-vs-Linux text-rasterization gap this repo has
 always had locally, not a change from this phase.
+
+## 2026-09-24 — Shared model extensions (Phase 2.0)
+
+Foundation for Phase 2's providers, unblocking nothing visible on its own:
+`lib/features/vps/domain/host_vitals.dart`'s `Gauge.allowed`/`percentUsed`
+are now `double?`, and `HostVitals.memory`/`disk`/`network` are now
+`Gauge?` (`cpu` stays required and non-null: every provider so far can
+report CPU, so there's no case to design for yet where it can't).
+`HostVitals` and `MonitorStatus`
+(`lib/features/uptime/domain/monitor_status.dart`) both gained an
+`extra: Map<String,String>?` for provider-specific extras that don't fit
+today's typed fields (load, uptime, kubelet version, Prometheus's 30d/365d
+windows); nothing populates it yet, that's Phase 2.1+'s job.
+
+New `Gauge.fromUsedAllowed(used, allowed, {unit, warnAt = 80, critAt =
+95})`: for a provider that only reports raw used/allowed and leaves us to
+derive percent/level ourselves (Webdock computes both server-side and
+keeps using the plain `Gauge(...)` constructor directly; Prometheus
+node_exporter and Docker stats, Phase 2.2/2.3, don't). A null, zero, or
+NaN `allowed`, or a NaN `used`, yields `percentUsed: null` and
+`level: ok` rather than a divide-by-zero or a NaN leaking into the UI.
+`demo_host_source.dart`'s own private `_gauge()` helper was an
+near-exact duplicate of this exact logic (level-from-percent with
+per-kind `warnAt`/`critAt` overrides); refactored to call the new factory
+instead of keeping two copies, which also serves as the first real proof
+the factory behaves identically to what it replaces (same test file,
+unchanged assertions, still green).
+
+`StatTile.unavailable({label, sub = '—'})` renders `—` for a gauge a
+provider genuinely can't supply. `vitals_panel.dart`'s three percent
+tiles (CPU/Mem/Disk) now go through a shared `_percentTile` helper that
+falls back to `.unavailable` when the gauge itself is null OR its
+`percentUsed` is null; `host_table_panel.dart`'s CPU/MEM/DISK columns
+have the same fallback via a small `_percentText(double?)` helper.
+Network keeps its own separate fallback (`_networkTile`) rather than
+sharing `_percentTile`, since it displays a scaled absolute used/allowed
+pair, not a percent, and needs `allowed` specifically (not just
+`percentUsed`) to render at all.
+
+Deliberately deferred, not designed here: a gauge with a real `used` but
+no `allowed` (genuinely uncapped, e.g. an unmetered network interface) is
+treated identically to an absent gauge, falling back to `.unavailable`
+rather than a dedicated "used, no cap" display. No current or Phase 2
+provider actually reports one; building that display now would be
+speculative UI for a shape of data nothing produces yet.
+
+Coverage note: Dart's coverage is line-based, not branch-based, so a
+single-line ternary (`host_table_panel.dart`'s `_percentText`) shows as
+"covered" once either branch executes even once. `host_table_panel_test.dart`
+already had fixtures for the non-null path from Phase 1.5; a genuinely
+null-gauge fixture was added here so the `—` fallback is actually
+exercised, not just line-covered by coincidence. Also caught this way:
+`_networkTile`'s own null-gauge branch is a `const` expression, which the
+VM never instruments at all (no DA: entry, not even a "0 hits" one) — it
+would have been invisible to a coverage-gap sweep even though it was
+genuinely untested; a dashboard-level widget test with a host missing
+memory/disk/network now exercises it directly instead of relying on lcov
+to notice.
+
+Left uncovered, pre-existing, not touched by this diff: `stat_tile.dart`'s
+`warn`-level border decoration (no test constructs a `StatTile` with
+`level: UsageLevel.warn` specifically) and the gaps already logged in
+Phase 1.4/1.5 (`vitals_panel.dart`'s "stopped"/"suspended" status glyph,
+`dashboard_screen.dart`'s settings-navigation callback).

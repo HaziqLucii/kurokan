@@ -9,6 +9,7 @@ class MonitorStatus {
   final double? uptime24h;
   final int? certDaysRemaining;
   final bool? certValid;
+  final Map<String, String>? extra;
 
   const MonitorStatus({
     required this.id,
@@ -19,5 +20,6 @@ class MonitorStatus {
     this.uptime24h,
     this.certDaysRemaining,
     this.certValid,
+    this.extra,
   });
 }

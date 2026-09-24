@@ -21,20 +21,23 @@ void main() {
     final b = await fetchAt(fixedNow);
 
     expect(a.cpu.percentUsed, b.cpu.percentUsed);
-    expect(a.memory.percentUsed, b.memory.percentUsed);
-    expect(a.disk.percentUsed, b.disk.percentUsed);
-    expect(a.network.percentUsed, b.network.percentUsed);
+    expect(a.memory!.percentUsed, b.memory!.percentUsed);
+    expect(a.disk!.percentUsed, b.disk!.percentUsed);
+    expect(a.network!.percentUsed, b.network!.percentUsed);
     expect(a.processCount, b.processCount);
   });
 
   test('every gauge percent stays within 0-100', () async {
     for (final offset in [0, 10, 100, 1000, 50000]) {
       final vitals = await fetchAt(fixedNow.add(Duration(seconds: offset)));
+      // DemoHostSource always populates every gauge; the ! below asserts
+      // that guarantee, same as this repo's other "safe on the app's
+      // actual path" non-null assertions (see docs/DECISIONS.md Phase 1.2).
       for (final gauge in [
         vitals.cpu,
-        vitals.memory,
-        vitals.disk,
-        vitals.network,
+        vitals.memory!,
+        vitals.disk!,
+        vitals.network!,
       ]) {
         expect(gauge.percentUsed, inInclusiveRange(0, 100));
       }
@@ -46,9 +49,9 @@ void main() {
       final vitals = await fetchAt(fixedNow.add(Duration(seconds: offset)));
       for (final gauge in [
         vitals.cpu,
-        vitals.memory,
-        vitals.disk,
-        vitals.network,
+        vitals.memory!,
+        vitals.disk!,
+        vitals.network!,
       ]) {
         expect(gauge.level, isNot(UsageLevel.crit));
       }

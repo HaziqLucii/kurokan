@@ -97,18 +97,11 @@ class DemoHostSource implements HostsSource {
     required String unit,
     double warnAt = 80,
     double critAt = 95,
-  }) {
-    final level = percent >= critAt
-        ? UsageLevel.crit
-        : percent >= warnAt
-        ? UsageLevel.warn
-        : UsageLevel.ok;
-    return Gauge(
-      used: percent,
-      allowed: 100,
-      percentUsed: percent,
-      level: level,
-      unit: unit,
-    );
-  }
+  }) => Gauge.fromUsedAllowed(
+    percent,
+    100,
+    unit: unit,
+    warnAt: warnAt,
+    critAt: critAt,
+  );
 }

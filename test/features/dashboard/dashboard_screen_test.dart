@@ -624,4 +624,53 @@ void main() {
       await _disposeTree(tester);
     },
   );
+
+  testWidgets('a host missing memory/disk/network gauges renders "—" for those '
+      'tiles instead of crashing (a provider that cannot report them)', (
+    tester,
+  ) async {
+    await _setWindowSize(tester);
+    final monitors = _FakeMonitorSource(
+      () async => const [
+        MonitorStatus(
+          id: '1',
+          name: 'Up Service',
+          type: 'http',
+          state: MonitorState.up,
+        ),
+      ],
+    );
+    final vitals = _FakeHostsSource(
+      () async => [
+        HostVitals(
+          slug: 'bare-metal',
+          name: 'Bare Metal',
+          status: 'running',
+          ipv4: '1.2.3.4',
+          cpu: const Gauge(
+            used: 10,
+            allowed: 100,
+            percentUsed: 10,
+            level: UsageLevel.ok,
+            unit: '%',
+          ),
+          memory: null,
+          disk: null,
+          network: null,
+          processCount: null,
+          sampledAt: DateTime(2026, 1, 1),
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(_harness(monitors: monitors, vitals: vitals));
+    await tester.pumpAndSettle();
+
+    expect(find.text('MEM'), findsOneWidget);
+    expect(find.text('DISK'), findsOneWidget);
+    expect(find.text('NETWORK'), findsOneWidget);
+    expect(find.text('—'), findsWidgets);
+
+    await _disposeTree(tester);
+  });
 }

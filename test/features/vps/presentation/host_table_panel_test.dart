@@ -102,4 +102,34 @@ void main() {
       expect(find.text(host.name), findsOneWidget);
     }
   });
+
+  testWidgets(
+    'a host missing memory/disk gauges shows "—" for those cells, not a crash',
+    (tester) async {
+      final bare = HostVitals(
+        slug: 'bare',
+        name: 'bare-metal',
+        status: 'running',
+        ipv4: '1.2.3.4',
+        cpu: const Gauge(
+          used: 10,
+          allowed: 100,
+          percentUsed: 10,
+          level: UsageLevel.ok,
+          unit: '%',
+        ),
+        memory: null,
+        disk: null,
+        network: null,
+        processCount: null,
+        sampledAt: DateTime(2026, 1, 1),
+      );
+
+      await _pump(tester, [bare, _host(slug: 'a', name: 'alpha')]);
+
+      expect(find.text('bare-metal'), findsOneWidget);
+      expect(find.text('10%'), findsOneWidget);
+      expect(find.text('—'), findsNWidgets(2));
+    },
+  );
 }

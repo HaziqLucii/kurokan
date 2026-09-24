@@ -20,6 +20,13 @@ class StatTile extends StatelessWidget {
     required this.level,
   });
 
+  /// For a gauge a provider genuinely can't supply (not one that's merely
+  /// unbounded): renders `—` instead of a percent.
+  const StatTile.unavailable({super.key, required this.label, this.sub = '—'})
+    : number = '—',
+      unit = '',
+      level = UsageLevel.ok;
+
   @override
   Widget build(BuildContext context) {
     final t = context.tokens;

@@ -59,10 +59,10 @@ void main() {
 
       expect(vitals.cpu.percentUsed, 49);
       expect(vitals.cpu.level, UsageLevel.ok);
-      expect(vitals.disk.percentUsed, 72.33);
-      expect(vitals.disk.level, UsageLevel.warn);
-      expect(vitals.memory.percentUsed, 71.8);
-      expect(vitals.network.percentUsed, 0.27);
+      expect(vitals.disk!.percentUsed, 72.33);
+      expect(vitals.disk!.level, UsageLevel.warn);
+      expect(vitals.memory!.percentUsed, 71.8);
+      expect(vitals.network!.percentUsed, 0.27);
     },
   );
 
