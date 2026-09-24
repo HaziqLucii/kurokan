@@ -457,3 +457,11 @@ phase: `vitals_panel.dart`'s "stopped"/"suspended" status-glyph branch and
 `dashboard_screen.dart`'s settings-navigation callback, both pre-existing
 gaps untouched by this diff; `_EmptyHostsBody` stays untested for the
 reason given above (no current provider can reach it).
+
+Golden images regenerated (same Linux-only technique as Phase 1.3: a
+temporary push-triggered workflow running `flutter test -t golden
+--update-goldens` on `ubuntu-24.04`, PNGs pulled via `gh run download`,
+workflow file deleted before merge). This is a deliberate pixel change,
+not a regression: the Vitals panel's tag in `dashboard_light.png`/
+`dashboard_dark.png` now reads "DEMO" instead of the old hardcoded
+"WEBDOCK", closing the cosmetic gap Phase 1.3 documented.
