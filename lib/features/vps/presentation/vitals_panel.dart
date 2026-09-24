@@ -9,23 +9,15 @@ import '../../../shared/widgets/halftone_dot.dart';
 import '../../../shared/widgets/kv_row.dart';
 import '../../../shared/widgets/source_error_text.dart';
 import '../../../shared/widgets/stat_tile.dart';
-import '../../../shared/widgets/status_glyph.dart';
 import '../../dashboard/panel_frame.dart';
 import '../domain/host_vitals.dart';
+import 'host_status_glyph.dart';
+import 'host_table_panel.dart';
 import 'hosts_provider.dart';
 import 'vitals_skeleton.dart';
 
 String _time(DateTime t) =>
     '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}:${t.second.toString().padLeft(2, '0')}';
-
-String _statusGlyphFor(String status) => switch (status) {
-  'running' => StatusGlyphs.up,
-  'stopped' || 'suspended' => StatusGlyphs.muted,
-  'error' => StatusGlyphs.down,
-  _ =>
-    StatusGlyphs
-        .pending, // provisioning/starting/rebooting/stopping/reinstalling
-};
 
 ({double value, String unit}) _networkScale(double allowedGiB) =>
     allowedGiB >= 1024 ? (value: 1024, unit: 'TB') : (value: 1, unit: 'GB');
@@ -79,14 +71,16 @@ class VitalsPanel extends ConsumerWidget {
       } else {
         footerLeft = 'Fetched ${_time(sample.fetchedAt)}';
       }
-      // Phase 1.4 scope: every provider today (webdock, demo) always
-      // yields exactly one host. Phase 1.5 adds a compact host table for a
-      // source that yields several (Prometheus etc, Phase 2). An empty
-      // list isn't reachable by any current provider but is handled
-      // gracefully rather than crashing on `.first`.
-      body = hosts.isEmpty
-          ? const _EmptyHostsBody()
-          : _VitalsBody(vitals: hosts.first);
+      // Every current provider (webdock, demo) always yields exactly one
+      // host; a source that yields several (Prometheus etc, Phase 2) gets
+      // the compact HostTablePanel instead of exploding into N detail
+      // tiles. An empty list isn't reachable by any current provider but
+      // is handled gracefully rather than crashing on `.first`.
+      body = switch (hosts.length) {
+        0 => const _EmptyHostsBody(),
+        1 => _VitalsBody(vitals: hosts.first),
+        _ => HostTablePanel(hosts: hosts),
+      };
     }
 
     return PanelFrame(
@@ -128,7 +122,7 @@ class _VitalsBody extends StatelessWidget {
             KvRow(
               label: 'Status',
               value: Text(
-                '${_statusGlyphFor(vitals.status)} ${vitals.status.toUpperCase()}',
+                '${hostStatusGlyph(vitals.status)} ${vitals.status.toUpperCase()}',
                 style: TextStyle(color: t.ink),
               ),
             ),
