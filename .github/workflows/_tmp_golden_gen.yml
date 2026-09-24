@@ -1,7 +1,8 @@
 name: _tmp golden regen
 
 on:
-  workflow_dispatch:
+  push:
+    branches: [phase-1.3-demo-golden-harness]
 
 permissions:
   contents: read
