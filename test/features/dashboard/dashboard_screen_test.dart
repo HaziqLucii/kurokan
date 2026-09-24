@@ -7,12 +7,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:kurokan/app.dart';
 import 'package:kurokan/core/config/app_config.dart';
 import 'package:kurokan/core/config/config_provider.dart';
+import 'package:kurokan/core/config/config_schema.dart';
+import 'package:kurokan/core/net/fetch_error.dart';
 import 'package:kurokan/features/uptime/domain/monitor_source.dart';
 import 'package:kurokan/features/uptime/domain/monitor_status.dart';
-import 'package:kurokan/features/uptime/presentation/monitors_provider.dart';
+import 'package:kurokan/features/uptime/presentation/uptime_provider.dart';
 import 'package:kurokan/features/vps/domain/host_vitals.dart';
-import 'package:kurokan/features/vps/domain/vitals_source.dart';
-import 'package:kurokan/features/vps/presentation/vitals_provider.dart';
+import 'package:kurokan/features/vps/domain/hosts_source.dart';
+import 'package:kurokan/features/vps/presentation/hosts_provider.dart';
 
 import '../../helpers/test_config.dart';
 
@@ -32,16 +34,19 @@ class _FakeMonitorSource implements MonitorSource {
   Future<List<MonitorStatus>> fetch() => impl();
 }
 
-class _FakeVitalsSource implements VitalsSource {
-  final Future<HostVitals> Function() impl;
-  _FakeVitalsSource(this.impl);
+class _FakeHostsSource implements HostsSource {
+  final Future<List<HostVitals>> Function() impl;
+  _FakeHostsSource(this.impl);
 
   @override
-  Future<HostVitals> fetch() => impl();
+  Future<List<HostVitals>> fetch() => impl();
 }
 
-HostVitals _okVitals({UsageLevel cpuLevel = UsageLevel.ok}) => HostVitals(
-  slug: 'test-server',
+HostVitals _okVitals({
+  UsageLevel cpuLevel = UsageLevel.ok,
+  String slug = 'test-server',
+}) => HostVitals(
+  slug: slug,
   name: 'Test Server',
   status: 'running',
   ipv4: '1.2.3.4',
@@ -79,13 +84,14 @@ HostVitals _okVitals({UsageLevel cpuLevel = UsageLevel.ok}) => HostVitals(
 
 Widget _harness({
   required MonitorSource monitors,
-  required VitalsSource vitals,
+  required HostsSource vitals,
 }) {
   return ProviderScope(
     overrides: [
       appConfigProvider.overrideWithValue(_testConfig()),
-      monitorSourceProvider.overrideWithValue(monitors),
-      vitalsSourceProvider.overrideWithValue(vitals),
+      // 'kuma'/'webdock' are the fixed ids testConfig() gives its entries.
+      uptimeSourceProvider('kuma').overrideWithValue(monitors),
+      hostsSourceProvider('webdock').overrideWithValue(vitals),
     ],
     child: const App(),
   );
@@ -117,7 +123,7 @@ void main() {
     final monitors = _FakeMonitorSource(
       () => Completer<List<MonitorStatus>>().future,
     );
-    final vitals = _FakeVitalsSource(() => Completer<HostVitals>().future);
+    final vitals = _FakeHostsSource(() => Completer<List<HostVitals>>().future);
 
     await tester.pumpWidget(_harness(monitors: monitors, vitals: vitals));
     await tester.pump();
@@ -147,7 +153,7 @@ void main() {
         ),
       ],
     );
-    final vitals = _FakeVitalsSource(() async => _okVitals());
+    final vitals = _FakeHostsSource(() async => [_okVitals()]);
 
     await tester.pumpWidget(_harness(monitors: monitors, vitals: vitals));
     await tester.pumpAndSettle();
@@ -172,8 +178,8 @@ void main() {
         ),
       ],
     );
-    final vitals = _FakeVitalsSource(
-      () async => _okVitals(cpuLevel: UsageLevel.crit),
+    final vitals = _FakeHostsSource(
+      () async => [_okVitals(cpuLevel: UsageLevel.crit)],
     );
 
     await tester.pumpWidget(_harness(monitors: monitors, vitals: vitals));
@@ -203,7 +209,7 @@ void main() {
         }
         throw Exception('network down');
       });
-      final vitals = _FakeVitalsSource(() async => _okVitals());
+      final vitals = _FakeHostsSource(() async => [_okVitals()]);
 
       await tester.pumpWidget(_harness(monitors: monitors, vitals: vitals));
       await tester.pumpAndSettle();
@@ -240,7 +246,7 @@ void main() {
           ),
         ];
       });
-      final vitals = _FakeVitalsSource(() async => _okVitals());
+      final vitals = _FakeHostsSource(() async => [_okVitals()]);
 
       await withClock(Clock.fixed(DateTime(2026, 1, 1, 12, 0, 0)), () async {
         await tester.pumpWidget(_harness(monitors: monitors, vitals: vitals));
@@ -267,4 +273,292 @@ void main() {
       await _disposeTree(tester);
     },
   );
+
+  testWidgets(
+    'a config with two hosts stacks both host panels in the narrow column',
+    (tester) async {
+      await _setWindowSize(tester);
+      const config = AppConfig(
+        hosts: [
+          SourceEntry(
+            kind: SourceKind.host,
+            id: 'webdock',
+            provider: 'webdock',
+            settings: {'slug': 'test-server', 'apiToken': 'wd_test'},
+          ),
+          SourceEntry(
+            kind: SourceKind.host,
+            id: 'webdock2',
+            provider: 'webdock',
+            settings: {'slug': 'second-server', 'apiToken': 'wd_test'},
+          ),
+        ],
+        uptime: [
+          SourceEntry(
+            kind: SourceKind.uptime,
+            id: 'kuma',
+            provider: 'kuma',
+            settings: {'url': 'https://kuma.test', 'apiKey': 'uk1_test'},
+          ),
+        ],
+      );
+      final monitors = _FakeMonitorSource(
+        () async => const [
+          MonitorStatus(
+            id: '1',
+            name: 'Up Service',
+            type: 'http',
+            state: MonitorState.up,
+          ),
+        ],
+      );
+      final vitalsA = _FakeHostsSource(
+        () async => [_okVitals(slug: 'first-server')],
+      );
+      final vitalsB = _FakeHostsSource(
+        () async => [_okVitals(slug: 'second-server')],
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            appConfigProvider.overrideWithValue(config),
+            uptimeSourceProvider('kuma').overrideWithValue(monitors),
+            hostsSourceProvider('webdock').overrideWithValue(vitalsA),
+            hostsSourceProvider('webdock2').overrideWithValue(vitalsB),
+          ],
+          child: const App(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Each host panel renders its own source's slug: this fails if the
+      // second panel were accidentally wired to the first host's provider
+      // instead of its own (a two-panel test using identical fake data on
+      // both sides wouldn't catch that).
+      expect(find.text('first-server'), findsOneWidget);
+      expect(find.text('second-server'), findsOneWidget);
+
+      await _disposeTree(tester);
+    },
+  );
+
+  testWidgets(
+    'a source that fails on the very first fetch shows the error body '
+    'with the provider tag, not a silent retry',
+    (tester) async {
+      await _setWindowSize(tester);
+      final monitors = _FakeMonitorSource(
+        () async => throw const NetworkError('connection refused'),
+      );
+      final vitals = _FakeHostsSource(() async => [_okVitals()]);
+
+      await tester.pumpWidget(_harness(monitors: monitors, vitals: vitals));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.textContaining(
+          'NETWORK · connection refused · CHECK KUMA CONNECTIVITY',
+        ),
+        findsOneWidget,
+      );
+
+      await _disposeTree(tester);
+    },
+  );
+
+  testWidgets(
+    'a host source that fails on the very first fetch shows the error '
+    'body with the provider tag, not a silent retry',
+    (tester) async {
+      await _setWindowSize(tester);
+      final monitors = _FakeMonitorSource(
+        () async => const [
+          MonitorStatus(
+            id: '1',
+            name: 'Up Service',
+            type: 'http',
+            state: MonitorState.up,
+          ),
+        ],
+      );
+      final vitals = _FakeHostsSource(
+        () async => throw const AuthError(401, 'ignored'),
+      );
+
+      await tester.pumpWidget(_harness(monitors: monitors, vitals: vitals));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.textContaining('AUTH · 401 FROM WEBDOCK · CHECK CREDENTIALS'),
+        findsOneWidget,
+      );
+
+      await _disposeTree(tester);
+    },
+  );
+
+  testWidgets(
+    'a host provider missing from the registry falls back to its raw id, '
+    'uppercased, as the panel tag',
+    (tester) async {
+      await _setWindowSize(tester);
+      const config = AppConfig(
+        hosts: [
+          SourceEntry(
+            kind: SourceKind.host,
+            id: 'mystery',
+            provider: 'mystery-provider',
+            settings: {},
+          ),
+        ],
+        uptime: [
+          SourceEntry(
+            kind: SourceKind.uptime,
+            id: 'kuma',
+            provider: 'kuma',
+            settings: {'url': 'https://kuma.test', 'apiKey': 'uk1_test'},
+          ),
+        ],
+      );
+      final monitors = _FakeMonitorSource(
+        () async => const [
+          MonitorStatus(
+            id: '1',
+            name: 'Up Service',
+            type: 'http',
+            state: MonitorState.up,
+          ),
+        ],
+      );
+      final vitals = _FakeHostsSource(() async => [_okVitals()]);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            appConfigProvider.overrideWithValue(config),
+            uptimeSourceProvider('kuma').overrideWithValue(monitors),
+            hostsSourceProvider('mystery').overrideWithValue(vitals),
+          ],
+          child: const App(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('MYSTERY-PROVIDER'), findsOneWidget);
+
+      await _disposeTree(tester);
+    },
+  );
+
+  testWidgets(
+    'an uptime provider missing from the registry falls back to its raw '
+    'id, uppercased, in the first-fetch-error message',
+    (tester) async {
+      await _setWindowSize(tester);
+      const config = AppConfig(
+        hosts: [
+          SourceEntry(
+            kind: SourceKind.host,
+            id: 'webdock',
+            provider: 'webdock',
+            settings: {'slug': 'test-server', 'apiToken': 'wd_test'},
+          ),
+        ],
+        uptime: [
+          SourceEntry(
+            kind: SourceKind.uptime,
+            id: 'mystery',
+            provider: 'mystery-provider',
+            settings: {},
+          ),
+        ],
+      );
+      final monitors = _FakeMonitorSource(
+        () async => throw const NetworkError('connection refused'),
+      );
+      final vitals = _FakeHostsSource(() async => [_okVitals()]);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            appConfigProvider.overrideWithValue(config),
+            uptimeSourceProvider('mystery').overrideWithValue(monitors),
+            hostsSourceProvider('webdock').overrideWithValue(vitals),
+          ],
+          child: const App(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.textContaining('CHECK MYSTERY-PROVIDER CONNECTIVITY'),
+        findsOneWidget,
+      );
+
+      await _disposeTree(tester);
+    },
+  );
+
+  testWidgets(
+    'a host source that goes stale after one good fetch shows the stale '
+    'footer for that panel specifically, not the error footer',
+    (tester) async {
+      await _setWindowSize(tester);
+      final monitors = _FakeMonitorSource(
+        () async => const [
+          MonitorStatus(
+            id: '1',
+            name: 'Up Service',
+            type: 'http',
+            state: MonitorState.up,
+          ),
+        ],
+      );
+      var callCount = 0;
+      final vitals = _FakeHostsSource(() async {
+        callCount++;
+        if (callCount == 1) return [_okVitals()];
+        throw const NetworkError('timeout');
+      });
+
+      await tester.pumpWidget(_harness(monitors: monitors, vitals: vitals));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('FETCHED'), findsNWidgets(2));
+      expect(find.textContaining('STALE'), findsNothing);
+
+      await tester.pump(const Duration(seconds: 30));
+      await tester.pumpAndSettle();
+
+      // Vitals goes stale; Monitors (still succeeding) stays fresh: the
+      // mirror image of the existing "monitors goes stale" case above.
+      expect(find.textContaining('STALE'), findsOneWidget);
+      expect(find.textContaining('FETCHED'), findsOneWidget);
+
+      await _disposeTree(tester);
+    },
+  );
+
+  testWidgets('a host source that returns zero hosts renders the empty-hosts '
+      'placeholder instead of crashing on .first', (tester) async {
+    await _setWindowSize(tester);
+    final monitors = _FakeMonitorSource(
+      () async => const [
+        MonitorStatus(
+          id: '1',
+          name: 'Up Service',
+          type: 'http',
+          state: MonitorState.up,
+        ),
+      ],
+    );
+    final vitals = _FakeHostsSource(() async => <HostVitals>[]);
+
+    await tester.pumpWidget(_harness(monitors: monitors, vitals: vitals));
+    await tester.pumpAndSettle();
+
+    expect(find.text('NO HOST DATA'), findsOneWidget);
+
+    await _disposeTree(tester);
+  });
 }

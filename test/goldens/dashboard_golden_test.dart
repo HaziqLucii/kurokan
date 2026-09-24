@@ -12,8 +12,8 @@ import 'package:kurokan/features/demo/demo_config.dart';
 import 'package:kurokan/features/demo/demo_host_source.dart';
 import 'package:kurokan/features/demo/demo_monitor_source.dart';
 import 'package:kurokan/features/demo/demo_scenario.dart';
-import 'package:kurokan/features/uptime/presentation/monitors_provider.dart';
-import 'package:kurokan/features/vps/presentation/vitals_provider.dart';
+import 'package:kurokan/features/uptime/presentation/uptime_provider.dart';
+import 'package:kurokan/features/vps/presentation/hosts_provider.dart';
 
 final _fixedNow = DateTime.utc(2026, 3, 1, 12);
 final _fixedClock = Clock.fixed(_fixedNow);
@@ -38,13 +38,15 @@ Future<void> _pumpDashboard(
         appConfigProvider.overrideWithValue(
           AppConfig(hosts: demo.hosts, uptime: demo.uptime, theme: theme),
         ),
-        monitorSourceProvider.overrideWithValue(
+        // 'demo-uptime'/'demo-host' are the fixed ids demoConfig() gives
+        // its entries.
+        uptimeSourceProvider('demo-uptime').overrideWithValue(
           DemoMonitorSource(
             clock: _fixedClock,
             scenario: DemoScenario.incident,
           ),
         ),
-        vitalsSourceProvider.overrideWithValue(
+        hostsSourceProvider('demo-host').overrideWithValue(
           DemoHostSource(clock: _fixedClock, scenario: DemoScenario.incident),
         ),
       ],

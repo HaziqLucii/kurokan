@@ -1,9 +1,9 @@
 import '../../../core/config/config_schema.dart';
 import '../../../core/providers/provider_spec.dart';
-import '../domain/vitals_source.dart';
+import '../domain/hosts_source.dart';
 import 'webdock_source.dart';
 
-const webdockSpec = ProviderSpec<VitalsSource>(
+const webdockSpec = ProviderSpec<HostsSource>(
   id: 'webdock',
   tag: 'WEBDOCK',
   kind: SourceKind.host,
@@ -15,7 +15,7 @@ const webdockSpec = ProviderSpec<VitalsSource>(
   label: _label,
 );
 
-VitalsSource _create(SourceEntry entry, SourceDeps deps) => WebdockSource(
+HostsSource _create(SourceEntry entry, SourceDeps deps) => WebdockSource(
   slug: entry.settings['slug']!,
   apiToken: entry.settings['apiToken']!,
   client: deps.client,

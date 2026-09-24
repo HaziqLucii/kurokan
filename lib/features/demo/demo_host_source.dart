@@ -3,7 +3,7 @@ import 'dart:math';
 import 'package:clock/clock.dart';
 
 import '../vps/domain/host_vitals.dart';
-import '../vps/domain/vitals_source.dart';
+import '../vps/domain/hosts_source.dart';
 import 'demo_scenario.dart';
 
 /// Anchor for the tick counter: `demo_wave` values are a pure function of
@@ -11,7 +11,7 @@ import 'demo_scenario.dart';
 /// so a fixed [Clock] (as goldens use) always reproduces the same output.
 final _anchor = DateTime.utc(2026, 1, 1);
 
-class DemoHostSource implements VitalsSource {
+class DemoHostSource implements HostsSource {
   final Clock clock;
   final DemoScenario scenario;
   final int seed;
@@ -23,7 +23,7 @@ class DemoHostSource implements VitalsSource {
   });
 
   @override
-  Future<HostVitals> fetch() async {
+  Future<List<HostVitals>> fetch() async {
     final now = clock.now();
     final tick = now.difference(_anchor).inSeconds;
 
@@ -62,18 +62,20 @@ class DemoHostSource implements VitalsSource {
       seedOffset: 3,
     );
 
-    return HostVitals(
-      slug: 'demo-vps',
-      name: 'Demo VPS',
-      status: 'running',
-      ipv4: '203.0.113.10',
-      cpu: _gauge(cpuPercent, unit: 'CPU-s'),
-      memory: _gauge(memPercent, unit: 'MiB'),
-      disk: _gauge(diskPercent, unit: 'MiB', warnAt: 70, critAt: 90),
-      network: _gauge(netPercent, unit: 'GiB'),
-      processCount: 80 + (tick % 15),
-      sampledAt: now,
-    );
+    return [
+      HostVitals(
+        slug: 'demo-vps',
+        name: 'Demo VPS',
+        status: 'running',
+        ipv4: '203.0.113.10',
+        cpu: _gauge(cpuPercent, unit: 'CPU-s'),
+        memory: _gauge(memPercent, unit: 'MiB'),
+        disk: _gauge(diskPercent, unit: 'MiB', warnAt: 70, critAt: 90),
+        network: _gauge(netPercent, unit: 'GiB'),
+        processCount: 80 + (tick % 15),
+        sampledAt: now,
+      ),
+    ];
   }
 
   double _wave({

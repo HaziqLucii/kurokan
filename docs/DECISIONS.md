@@ -357,3 +357,158 @@ target already excluded goldens since Phase 1.0 (`-x golden`, added ahead
 of this phase); `.github/workflows/ci.yml`'s `check` job now has a
 dedicated `flutter test -t golden` step so CI is the only place they
 actually run.
+
+## 2026-09-24 — Polling for N sources + panel registry (Phase 1.4)
+
+`vitals_source.dart` is gone; `HostsSource` (`lib/features/vps/domain/hosts_source.dart`)
+replaces it with `Future<List<HostVitals>> fetch()` instead of a single
+`HostVitals`. `WebdockSource`/`DemoHostSource` now wrap their one host in a
+list. Nothing today yields more than one, but the interface has to allow
+it before a Phase 2 provider (e.g. a fleet-wide Prometheus exporter) can
+return several without another interface break.
+
+`lib/core/polling/polled.dart` gained `polledFamily<T, A>`, the
+`FutureProvider.family` counterpart of the existing `polled<T>`. Same
+shape (`interval`/`fetch` callbacks, a `Timer` per instance re-invalidating
+itself, `retry: (_, _) => null` since the timer alone owns cadence), but
+keyed per argument so each configured source gets its own independent
+poll loop and its own stale/error state. `FutureProviderFamily` has to be
+imported from `package:flutter_riverpod/misc.dart`, not the main barrel.
+
+`vitals_provider.dart`/`monitors_provider.dart` are gone, replaced by
+`hosts_provider.dart`/`uptime_provider.dart`: a `Provider.family<S,
+String>` that resolves one config entry by id and builds its source via
+the registry, feeding a `polledFamily`. This is also what resolves the
+`firstHost!`/`firstUptime!` crash risk flagged in Phase 1.1's log entry:
+that risk was specifically "a config with zero hosts (uptime-only) crashes
+the vitals provider with a null-check error," and the new
+`panelRegistryProvider` (below) only ever calls `hostsProvider(id)` for an
+`id` it read off `config.hosts` itself, so a hosts-empty config simply
+produces zero host panels instead of constructing a provider that has
+nothing to point at. `settings_form.dart` still reads `firstHost`/
+`firstUptime` (with `?`, never `!`), untouched here; it stays a
+single-source form until Phase 3.1.
+
+`lib/features/dashboard/panel_registry.dart` is new: `PanelEntry{key,
+sourceId, slot, fetchedAt, isLoading, hasError, build}` and
+`panelRegistryProvider`, which watches every configured uptime/host source
+and emits one `PanelEntry` per source, sorted by `config.layout.order`
+(entries not named in `order` keep their config-declared relative order,
+appended after the ones that are named). `marginMetaProvider` moved the
+`dashboard_screen.dart` margin-text logic here too: a single configured
+host shows its own registry label, more than one falls back to a
+`"$N HOSTS · $M UPTIME"` summary, since there's no longer one canonical
+host to name.
+
+`dashboard_screen.dart`'s two panel slots each render a `_PanelColumn`
+that stacks every `PanelEntry` in that slot, with a fixed-height `SizedBox`
+gap (not a visible divider line) between them, when a config has more than
+one source of a kind. This is Phase 1.4
+scope only (make it not break); the actual responsive multi-panel layout
+(breakpoints, collapsing to a single column) is Phase 1.5's job, noted
+in-code.
+
+`shared/widgets/source_error_text.dart` is new: `sourceErrorKind`/
+`sourceErrorMessage` extracted from what used to be near-duplicate private
+functions inside `vitals_panel.dart` and `monitor_panel.dart`. The old
+per-panel messages hardcoded the provider name in the string ("CHECK
+webdock.slug", "FROM WEBDOCK"); with N possible providers behind one
+panel, that's wrong for every provider but one, so the shared version
+takes the active source's tag as a parameter instead. This also fixes the
+cosmetic gap Phase 1.3 documented (`VitalsPanel`'s tag read "WEBDOCK"
+even in demo mode): both panels now resolve their tag from
+`registry.hostSpec(entry.provider)?.tag`/`uptimeSpec(...)?.tag`, falling
+back to `entry.provider.toUpperCase()` only if the registry somehow has no
+spec for it (not reachable via `AppConfig.fromJson`'s own validation, same
+caveat as Phase 1.2's registry `!` note).
+
+`VitalsPanel` renders `hosts.first` and treats an empty list as a
+`_EmptyHostsBody` rather than crashing on `.first`: every provider today
+(webdock, demo) always yields exactly one host, so this branch isn't
+reachable in practice yet. Phase 1.5 adds the compact multi-host table
+Phase 2's fleet-wide providers will actually need; building it now would
+be speculative.
+
+Deviation from the plan's literal file list: the plan named
+`config_watcher.dart` for the "ignore unrelated file writes in the config
+directory" fix, but that file doesn't exist here; the real
+`Directory.watch()` logic is in `lib/core/platform/config_store_io.dart`'s
+`changes()`, which is what changed instead. It now compares each
+`FileSystemEvent`'s basename against the store's own resolved filename
+(and its `.tmp` sibling) and drops anything else, so an editor swap file,
+`.DS_Store`, or a future Phase 3 history JSONL sitting in the same
+directory can no longer trigger a spurious reload.
+
+Coverage gaps caught after the initial implementation, all closed before
+this phase's PR: `test/features/dashboard/panel_registry_test.dart` is new
+(the plan's own explicit requirement — asserts a migrated v1 config yields
+exactly `[uptime:kuma wide, host:webdock narrow]` — plus a `layout.order`
+reordering case and both `marginMetaProvider` branches).
+`config_store_io_test.dart` gained a case proving a stray file write in
+the config directory does not fire `changes()` while the config file (or
+its `.tmp`) still does. `source_error_text.dart`'s two functions had zero
+direct test coverage despite being new and shared by both panels; added
+`test/shared/widgets/source_error_text_test.dart` covering every
+`FetchError` variant. Neither panel's "fails on the very first fetch"
+branch (`hasError && !hasValue`, the `ErrBlock`/tag-fallback path) had ever
+been exercised by any test at any level; added one case per panel to
+`dashboard_screen_test.dart`, plus a two-host case covering
+`_PanelColumn`'s multi-panel branch. Left uncovered, and not new to this
+phase: `vitals_panel.dart`'s "stopped"/"suspended" status-glyph branch and
+`dashboard_screen.dart`'s settings-navigation callback, both pre-existing
+gaps untouched by this diff.
+
+Codecov's patch-coverage comment on the PR caught 7 lines this initial
+pass missed, all inside code this phase actually added: the `?? entry.
+provider.toUpperCase()` tag-fallback in both `vitals_panel.dart` and
+`monitor_panel.dart`, `vitals_panel.dart`'s own stale-after-one-good-fetch
+footer (the existing stale-footer test only ever failed the *monitors*
+side, never the *vitals* side), and `_EmptyHostsBody`. The last of these
+had been dismissed above as "not reachable by any current provider," which
+is true of the real webdock/demo sources but wrong as a reason to skip
+testing it: a fake `HostsSource` returning `[]` (the same kind of test
+double already used throughout this file) reaches it in one line, no new
+test infrastructure needed. Likewise the tag-fallback branch is reachable
+by pointing a `SourceEntry.provider` at an id the registry doesn't
+recognize while overriding the source provider directly (bypassing the
+separate, legitimately-unreachable `!` in `hosts_provider.dart`/
+`uptime_provider.dart` that assumes `AppConfig.fromJson` already
+validated the id). Four more cases added to `dashboard_screen_test.dart`
+close all 7; the only remaining gap in these two files is the pre-existing
+"stopped"/"suspended" branch noted above.
+
+Found and fixed during `refuter` review: `config_store_io.dart`'s new
+basename filter (above) only checked `event.path`, which is correct for
+the app's own atomic write (`config.json.tmp` renamed onto `config.json`,
+reported as name-matching events on both macOS FSEvents and Linux
+inotify) but silently dropped an *external* atomic write, e.g. `jq ... >
+.swp && mv .swp config.json`, a JetBrains "safe write", or vim's default
+`backupcopy=no`. On Linux, inotify reports that rename as a single
+`FileSystemMoveEvent` whose `path` is the old temp name and whose
+`destination` is `config.json`; the filter saw a non-matching `path` and
+dropped it before ever looking at `destination`. Before this phase, any
+event in the directory triggered a reload, so this was a real regression
+on a target platform, not just a missed test case. Fixed by also matching
+`FileSystemMoveEvent.destination`'s basename; covered by a new
+`config_store_io_test.dart` case that renames an arbitrarily-named temp
+file onto the config path (passes on macOS via the pre-existing
+Delete+Create path, and is the case that actually exercises the new
+branch on Linux CI). Also caught and fixed in the same pass:
+`panel_registry.dart` was hand-building `'uptime:${id}'`/`'host:${id}'`
+instead of reusing `SourceEntry.panelKey` (`config_schema.dart`), which
+would have been a second definition to keep in sync by hand; a couple of
+new tests were shallower than their descriptions claimed (the two-host
+stacking test used identical fake data on both hosts, so it couldn't have
+caught the second panel being wired to the wrong source; the uptime
+first-fetch-error assertion stopped short of the provider tag it claimed
+to check; the `polledFamily` "independent interval" test gave both args
+the same 30s interval, so a shared timer would have passed too) — all
+three tightened to actually verify what their names say.
+
+Golden images regenerated (same Linux-only technique as Phase 1.3: a
+temporary push-triggered workflow running `flutter test -t golden
+--update-goldens` on `ubuntu-24.04`, PNGs pulled via `gh run download`,
+workflow file deleted before merge). This is a deliberate pixel change,
+not a regression: the Vitals panel's tag in `dashboard_light.png`/
+`dashboard_dark.png` now reads "DEMO" instead of the old hardcoded
+"WEBDOCK", closing the cosmetic gap Phase 1.3 documented.

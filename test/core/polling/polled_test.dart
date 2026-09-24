@@ -107,4 +107,82 @@ void main() {
       });
     },
   );
+
+  group('polledFamily', () {
+    test('each arg gets its own independent fetch and interval', () {
+      fakeAsync((async) {
+        final fakeClock = async.getClock(DateTime(2026, 1, 1));
+        withClock(fakeClock, () {
+          final callCounts = <String, int>{};
+          // Deliberately different intervals per arg: if both instances
+          // shared a single Timer, 'a' would tick early or 'b' would tick
+          // late instead of each firing on its own schedule.
+          final family = polledFamily<int, String>(
+            (ref, arg) => arg == 'a'
+                ? const Duration(seconds: 10)
+                : const Duration(seconds: 30),
+            (ref, arg) async {
+              callCounts[arg] = (callCounts[arg] ?? 0) + 1;
+              return callCounts[arg]!;
+            },
+          );
+
+          final container = ProviderContainer();
+          addTearDown(container.dispose);
+          final subA = container.listen(family('a'), (prev, next) {});
+          final subB = container.listen(family('b'), (prev, next) {});
+
+          async.elapse(Duration.zero);
+          expect(container.read(family('a')).value?.value, 1);
+          expect(container.read(family('b')).value?.value, 1);
+
+          // 'a' ticks at 10s; 'b' (30s) must not have ticked again yet.
+          async.elapse(const Duration(seconds: 10));
+          expect(container.read(family('a')).value?.value, 2);
+          expect(container.read(family('b')).value?.value, 1);
+
+          // Advancing to 30s total lets 'a' tick twice more (20s, 30s) and
+          // 'b' tick once (30s).
+          async.elapse(const Duration(seconds: 20));
+          expect(container.read(family('a')).value?.value, 4);
+          expect(container.read(family('b')).value?.value, 2);
+
+          subA.close();
+          subB.close();
+        });
+      });
+    });
+
+    test('invalidating the family refreshes every existing instance', () {
+      fakeAsync((async) {
+        withClock(async.getClock(DateTime(2026, 1, 1)), () {
+          final callCounts = <String, int>{};
+          final family = polledFamily<int, String>(
+            (ref, arg) => const Duration(seconds: 30),
+            (ref, arg) async {
+              callCounts[arg] = (callCounts[arg] ?? 0) + 1;
+              return callCounts[arg]!;
+            },
+          );
+
+          final container = ProviderContainer();
+          addTearDown(container.dispose);
+          final subA = container.listen(family('a'), (prev, next) {});
+          final subB = container.listen(family('b'), (prev, next) {});
+
+          async.elapse(Duration.zero);
+          expect(callCounts['a'], 1);
+          expect(callCounts['b'], 1);
+
+          container.invalidate(family);
+          async.elapse(Duration.zero);
+          expect(callCounts['a'], 2);
+          expect(callCounts['b'], 2);
+
+          subA.close();
+          subB.close();
+        });
+      });
+    });
+  });
 }

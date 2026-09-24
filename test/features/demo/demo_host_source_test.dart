@@ -12,7 +12,8 @@ void main() {
     DemoScenario scenario = DemoScenario.calm,
   }) => withClock(
     Clock.fixed(now),
-    () => DemoHostSource(clock: clock, scenario: scenario).fetch(),
+    () async =>
+        (await DemoHostSource(clock: clock, scenario: scenario).fetch()).single,
   );
 
   test('fetch() is deterministic for a fixed clock', () async {

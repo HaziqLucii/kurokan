@@ -1,11 +1,11 @@
 import '../../core/config/config_schema.dart';
 import '../../core/providers/provider_spec.dart';
 import '../uptime/domain/monitor_source.dart';
-import '../vps/domain/vitals_source.dart';
+import '../vps/domain/hosts_source.dart';
 import 'demo_host_source.dart';
 import 'demo_monitor_source.dart';
 
-const demoHostSpec = ProviderSpec<VitalsSource>(
+const demoHostSpec = ProviderSpec<HostsSource>(
   id: 'demo',
   tag: 'DEMO',
   kind: SourceKind.host,
@@ -23,7 +23,7 @@ const demoUptimeSpec = ProviderSpec<MonitorSource>(
   label: _label,
 );
 
-VitalsSource _createHost(SourceEntry entry, SourceDeps deps) =>
+HostsSource _createHost(SourceEntry entry, SourceDeps deps) =>
     DemoHostSource(clock: deps.clock);
 
 MonitorSource _createUptime(SourceEntry entry, SourceDeps deps) =>

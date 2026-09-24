@@ -3,43 +3,32 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/config/config_provider.dart';
-import '../../../core/net/fetch_error.dart';
+import '../../../core/providers/registry_provider.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../shared/widgets/err_block.dart';
+import '../../../shared/widgets/source_error_text.dart';
 import '../../dashboard/panel_frame.dart';
 import '../domain/monitor_status.dart';
 import 'monitor_row.dart';
 import 'monitor_skeleton.dart';
-import 'monitors_provider.dart';
+import 'uptime_provider.dart';
 
 String _time(DateTime t) =>
     '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}:${t.second.toString().padLeft(2, '0')}';
 
-String _errorKind(Object? error) => switch (error) {
-  NetworkError _ => 'NETWORK',
-  AuthError _ => 'AUTH',
-  HttpError _ => 'HTTP',
-  ParseError _ => 'PARSE',
-  TimeoutError _ => 'TIMEOUT',
-  _ => 'ERROR',
-};
-
-String _errorMessage(Object? error) => switch (error) {
-  NetworkError e => 'NETWORK · ${e.detail} · CHECK kuma.url',
-  AuthError e => 'AUTH · ${e.status} FROM KUMA · CHECK kuma.apiKey',
-  HttpError e => 'HTTP · ${e.status} FROM KUMA',
-  ParseError e => 'PARSE · ${e.detail}',
-  TimeoutError _ => 'TIMEOUT · 10S',
-  _ => 'UNKNOWN ERROR',
-};
-
 class MonitorPanel extends ConsumerWidget {
-  const MonitorPanel({super.key});
+  final String sourceId;
+  const MonitorPanel({super.key, required this.sourceId});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final async = ref.watch(monitorsProvider);
-    final pollSeconds = ref.watch(appConfigProvider).pollInterval.inSeconds;
+    final async = ref.watch(uptimeProvider(sourceId));
+    final config = ref.watch(appConfigProvider);
+    final pollSeconds = config.pollInterval.inSeconds;
+    final entry = config.uptime.firstWhere((u) => u.id == sourceId);
+    final providerTag =
+        ref.watch(providerRegistryProvider).uptimeSpec(entry.provider)?.tag ??
+        entry.provider.toUpperCase();
 
     final hasValue = async.hasValue;
     final hasError = async.hasError;
@@ -61,7 +50,7 @@ class MonitorPanel extends ConsumerWidget {
       footerLeft = 'Error · ${_time(clock.now())}';
       footerRight = 'Retry ${pollSeconds}s';
       body = ErrBlock(
-        message: _errorMessage(async.error),
+        message: sourceErrorMessage(async.error, tag: providerTag),
         hint: 'Retry in ${pollSeconds}s · ⌘R to retry now',
       );
     } else {
@@ -79,7 +68,7 @@ class MonitorPanel extends ConsumerWidget {
       } else if (hasError) {
         dimmed = true;
         footerLeft =
-            'Stale · Last ok ${_time(sample.fetchedAt)} · ${_errorKind(async.error)}';
+            'Stale · Last ok ${_time(sample.fetchedAt)} · ${sourceErrorKind(async.error)}';
       } else {
         footerLeft = 'Fetched ${_time(sample.fetchedAt)}';
       }

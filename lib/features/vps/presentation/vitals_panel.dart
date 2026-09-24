@@ -2,38 +2,21 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/config/config_provider.dart';
-import '../../../core/net/fetch_error.dart';
+import '../../../core/providers/registry_provider.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../shared/widgets/err_block.dart';
 import '../../../shared/widgets/halftone_dot.dart';
 import '../../../shared/widgets/kv_row.dart';
+import '../../../shared/widgets/source_error_text.dart';
 import '../../../shared/widgets/stat_tile.dart';
 import '../../../shared/widgets/status_glyph.dart';
 import '../../dashboard/panel_frame.dart';
 import '../domain/host_vitals.dart';
-import 'vitals_provider.dart';
+import 'hosts_provider.dart';
 import 'vitals_skeleton.dart';
 
 String _time(DateTime t) =>
     '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}:${t.second.toString().padLeft(2, '0')}';
-
-String _errorKind(Object? error) => switch (error) {
-  NetworkError _ => 'NETWORK',
-  AuthError _ => 'AUTH',
-  HttpError _ => 'HTTP',
-  ParseError _ => 'PARSE',
-  TimeoutError _ => 'TIMEOUT',
-  _ => 'ERROR',
-};
-
-String _errorMessage(Object? error) => switch (error) {
-  NetworkError e => 'NETWORK · ${e.detail} · CHECK webdock.slug',
-  AuthError e => 'AUTH · ${e.status} FROM WEBDOCK · CHECK webdock.apiToken',
-  HttpError e => 'HTTP · ${e.status} FROM WEBDOCK',
-  ParseError e => 'PARSE · ${e.detail}',
-  TimeoutError _ => 'TIMEOUT · 10S',
-  _ => 'UNKNOWN ERROR',
-};
 
 String _statusGlyphFor(String status) => switch (status) {
   'running' => StatusGlyphs.up,
@@ -48,12 +31,18 @@ String _statusGlyphFor(String status) => switch (status) {
     allowedGiB >= 1024 ? (value: 1024, unit: 'TB') : (value: 1, unit: 'GB');
 
 class VitalsPanel extends ConsumerWidget {
-  const VitalsPanel({super.key});
+  final String sourceId;
+  const VitalsPanel({super.key, required this.sourceId});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final async = ref.watch(vitalsProvider);
-    final pollSeconds = ref.watch(appConfigProvider).pollInterval.inSeconds;
+    final async = ref.watch(hostsProvider(sourceId));
+    final config = ref.watch(appConfigProvider);
+    final pollSeconds = config.pollInterval.inSeconds;
+    final entry = config.hosts.firstWhere((h) => h.id == sourceId);
+    final tag =
+        ref.watch(providerRegistryProvider).hostSpec(entry.provider)?.tag ??
+        entry.provider.toUpperCase();
 
     final hasValue = async.hasValue;
     final hasError = async.hasError;
@@ -72,13 +61,13 @@ class VitalsPanel extends ConsumerWidget {
       footerLeft = 'Error · ${_time(DateTime.now())}';
       footerRight = 'Retry ${pollSeconds}s';
       body = ErrBlock(
-        message: _errorMessage(async.error),
+        message: sourceErrorMessage(async.error, tag: tag),
         hint: 'Retry in ${pollSeconds}s',
         padding: const EdgeInsets.symmetric(vertical: 16),
       );
     } else {
       final sample = async.requireValue;
-      final vitals = sample.value;
+      final hosts = sample.value;
       footerRight = 'Poll ${pollSeconds}s';
 
       if (isLoading) {
@@ -86,20 +75,39 @@ class VitalsPanel extends ConsumerWidget {
       } else if (hasError) {
         dimmed = true;
         footerLeft =
-            'Stale · Last ok ${_time(sample.fetchedAt)} · ${_errorKind(async.error)}';
+            'Stale · Last ok ${_time(sample.fetchedAt)} · ${sourceErrorKind(async.error)}';
       } else {
         footerLeft = 'Fetched ${_time(sample.fetchedAt)}';
       }
-      body = _VitalsBody(vitals: vitals);
+      // Phase 1.4 scope: every provider today (webdock, demo) always
+      // yields exactly one host. Phase 1.5 adds a compact host table for a
+      // source that yields several (Prometheus etc, Phase 2). An empty
+      // list isn't reachable by any current provider but is handled
+      // gracefully rather than crashing on `.first`.
+      body = hosts.isEmpty
+          ? const _EmptyHostsBody()
+          : _VitalsBody(vitals: hosts.first);
     }
 
     return PanelFrame(
       title: 'Vitals',
-      tag: 'Webdock',
+      tag: tag,
       body: body,
       footerLeft: footerLeft,
       footerRight: footerRight,
       dimmed: dimmed,
+    );
+  }
+}
+
+class _EmptyHostsBody extends StatelessWidget {
+  const _EmptyHostsBody();
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+    return Center(
+      child: Text('NO HOST DATA', style: TextStyle(color: t.muted)),
     );
   }
 }

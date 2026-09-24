@@ -71,10 +71,31 @@ class _IoConfigStore implements ConfigStore {
     late final StreamController<void> controller;
     Timer? debounce;
     StreamSubscription<FileSystemEvent>? sub;
+    final targetName = _basenameOf(path);
+    final targetTmpName = '$targetName.tmp';
 
     controller = StreamController<void>(
       onListen: () {
-        sub = Directory(dir).watch().listen((_) {
+        sub = Directory(dir).watch().listen((event) {
+          // A state dir or a stray file (editor swap file, .DS_Store, a
+          // future Phase 3 history JSONL if it ever lands in this same
+          // directory) must never trigger a reload: only the config file
+          // itself and its atomic-write temp file do.
+          final name = _basenameOf(event.path);
+          var matches = name == targetName || name == targetTmpName;
+          // On Linux, an external atomic write (`mv tmp config.json`, a
+          // JetBrains "safe write", vim's default backupcopy) renames an
+          // arbitrarily-named temp file onto the target: inotify reports
+          // this as a single FileSystemMoveEvent whose `path` is the old,
+          // unrelated temp name and whose `destination` is the target.
+          // macOS FSEvents instead reports it as Delete(tmp) + Create(target),
+          // which the `name` check above already catches.
+          if (!matches && event is FileSystemMoveEvent) {
+            final destination = event.destination;
+            matches =
+                destination != null && _basenameOf(destination) == targetName;
+          }
+          if (!matches) return;
           debounce?.cancel();
           debounce = Timer(const Duration(milliseconds: 300), () {
             if (!controller.isClosed) controller.add(null);
@@ -91,4 +112,9 @@ class _IoConfigStore implements ConfigStore {
     );
     return controller.stream;
   }
+}
+
+String _basenameOf(String path) {
+  final slash = path.lastIndexOf('/');
+  return slash == -1 ? path : path.substring(slash + 1);
 }

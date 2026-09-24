@@ -8,14 +8,12 @@ import '../../core/config/config_provider.dart';
 import '../../core/theme/tokens.dart';
 import '../../shared/widgets/dossier_button.dart';
 import '../../shared/widgets/window_frame.dart';
-import '../../version.dart';
 import '../settings/settings_screen.dart';
-import '../uptime/presentation/monitor_panel.dart';
-import '../uptime/presentation/monitors_provider.dart';
-import '../vps/presentation/vitals_panel.dart';
-import '../vps/presentation/vitals_provider.dart';
+import '../uptime/presentation/uptime_provider.dart';
+import '../vps/presentation/hosts_provider.dart';
 import 'dashboard_header.dart';
 import 'last_refresh_provider.dart';
+import 'panel_registry.dart';
 
 const _manualRefreshDebounce = Duration(seconds: 5);
 
@@ -41,8 +39,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       return;
     }
     _lastManualRefresh = now;
-    ref.invalidate(monitorsProvider);
-    ref.invalidate(vitalsProvider);
+    ref.invalidate(uptimeProvider);
+    ref.invalidate(hostsProvider);
   }
 
   void _openSettings(AppConfig config, String configPath) {
@@ -57,15 +55,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   Widget build(BuildContext context) {
     final config = ref.watch(appConfigProvider);
     final t = context.tokens;
-    final marginMeta =
-        '${config.firstHost?.settings['slug'] ?? '?'} · POLL ${config.pollInterval.inSeconds}S · V$appVersion';
+    final marginMeta = ref.watch(marginMetaProvider);
+    final panels = ref.watch(panelRegistryProvider);
 
-    final monitorsAsync = ref.watch(monitorsProvider);
-    final vitalsAsync = ref.watch(vitalsProvider);
-    final initialLoading =
-        (monitorsAsync.isLoading && !monitorsAsync.hasValue) ||
-        (vitalsAsync.isLoading && !vitalsAsync.hasValue);
-    final refreshing = monitorsAsync.isLoading || vitalsAsync.isLoading;
+    final initialLoading = panels.any(
+      (p) => p.isLoading && p.fetchedAt == null,
+    );
+    final refreshing = panels.any((p) => p.isLoading);
 
     final refreshVisual = initialLoading
         ? DossierButtonVisual.disabled
@@ -75,6 +71,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final refreshLabel = refreshing && !initialLoading
         ? 'Refreshing'
         : '↻ Refresh';
+
+    final widePanels = panels.where((p) => p.slot == PanelSlot.wide).toList();
+    final narrowPanels = panels
+        .where((p) => p.slot == PanelSlot.narrow)
+        .toList();
 
     return CallbackShortcuts(
       bindings: {
@@ -106,9 +107,15 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      const Expanded(flex: 62, child: MonitorPanel()),
+                      Expanded(
+                        flex: 62,
+                        child: _PanelColumn(panels: widePanels),
+                      ),
                       const SizedBox(width: 40),
-                      const Expanded(flex: 38, child: VitalsPanel()),
+                      Expanded(
+                        flex: 38,
+                        child: _PanelColumn(panels: narrowPanels),
+                      ),
                     ],
                   ),
                 ),
@@ -117,6 +124,30 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Phase 1.4 scope: stacks multiple panels in the same slot vertically.
+/// The actual responsive multi-panel layout (breakpoints, single column)
+/// is Phase 1.5's job; this just has to not break when a config has more
+/// than one source of a kind.
+class _PanelColumn extends StatelessWidget {
+  final List<PanelEntry> panels;
+  const _PanelColumn({required this.panels});
+
+  @override
+  Widget build(BuildContext context) {
+    if (panels.isEmpty) return const SizedBox.shrink();
+    if (panels.length == 1) return panels.first.build();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (final panel in panels) ...[
+          Expanded(child: panel.build()),
+          if (panel.key != panels.last.key) const SizedBox(height: 24),
+        ],
+      ],
     );
   }
 }
