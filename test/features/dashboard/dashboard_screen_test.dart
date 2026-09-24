@@ -631,12 +631,16 @@ void main() {
   ) async {
     await _setWindowSize(tester);
     final monitors = _FakeMonitorSource(
+      // responseTime/uptime24h are set so this monitor row renders no "—"
+      // of its own: the count below isolates the vitals fallback tiles.
       () async => const [
         MonitorStatus(
           id: '1',
           name: 'Up Service',
           type: 'http',
           state: MonitorState.up,
+          responseTime: Duration(milliseconds: 42),
+          uptime24h: 0.999,
         ),
       ],
     );
@@ -669,7 +673,12 @@ void main() {
     expect(find.text('MEM'), findsOneWidget);
     expect(find.text('DISK'), findsOneWidget);
     expect(find.text('NETWORK'), findsOneWidget);
-    expect(find.text('—'), findsWidgets);
+    // StatTile's number is a RichText, not a plain Text: find.text() only
+    // matches it with findRichText: true, otherwise this would only prove
+    // the unrelated Procs row (processCount: null) shows "—", not that the
+    // Mem/Disk/Network tiles' own fallback actually rendered anything.
+    // 3 unavailable tiles x (number + sub) + the Procs row = 7.
+    expect(find.text('—', findRichText: true), findsNWidgets(7));
 
     await _disposeTree(tester);
   });

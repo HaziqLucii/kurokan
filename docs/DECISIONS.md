@@ -640,6 +640,19 @@ genuinely untested; a dashboard-level widget test with a host missing
 memory/disk/network now exercises it directly instead of relying on lcov
 to notice.
 
+Found and fixed during `refuter` review: that same dashboard-level test's
+original assertion, `expect(find.text('—'), findsWidgets)`, was itself a
+false positive. `StatTile`'s big number is a `RichText`, not a `Text`, and
+`find.text()` only matches `RichText` with `findRichText: true` (default
+`false`); the assertion was passing only because the unrelated `Procs`
+`KvRow` (`processCount: null`) already renders a plain-`Text` `—`. It
+proved "no crash", not "the fallback tiles actually show `—`". Fixed by
+adding `findRichText: true` and asserting an exact count (7: three
+unavailable tiles x number+sub, plus the `Procs` row), after giving the
+test's `MonitorStatus` fixture a real `responseTime`/`uptime24h` so the
+Monitors panel's own unrelated `—` cells (`RESP`/`24H` on a bare status)
+don't pollute that count.
+
 Left uncovered, pre-existing, not touched by this diff: `stat_tile.dart`'s
 `warn`-level border decoration (no test constructs a `StatTile` with
 `level: UsageLevel.warn` specifically) and the gaps already logged in
