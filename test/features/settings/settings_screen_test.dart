@@ -7,6 +7,8 @@ import 'package:kurokan/core/config/app_config.dart';
 import 'package:kurokan/core/theme/theme.dart';
 import 'package:kurokan/features/settings/settings_screen.dart';
 
+import '../../helpers/test_config.dart';
+
 Future<void> _setWindowSize(WidgetTester tester) async {
   await tester.binding.setSurfaceSize(const Size(1100, 720));
   tester.view.physicalSize = const Size(1100, 720);
@@ -78,11 +80,11 @@ void main() {
       final written =
           jsonDecode(File(configPath).readAsStringSync())
               as Map<String, dynamic>;
-      final config = AppConfig.fromJson(written);
-      expect(config.webdock.slug, 'my-slug');
-      expect(config.webdock.apiToken, 'wd_token');
-      expect(config.kuma.url, 'https://kuma.example.tld');
-      expect(config.kuma.apiKey, 'uk1_key');
+      final config = AppConfig.fromJson(written, schema: testConfigSchema);
+      expect(config.firstHost?.settings['slug'], 'my-slug');
+      expect(config.firstHost?.settings['apiToken'], 'wd_token');
+      expect(config.firstUptime?.settings['url'], 'https://kuma.example.tld');
+      expect(config.firstUptime?.settings['apiKey'], 'uk1_key');
       expect(config.pollInterval, const Duration(seconds: 60));
     },
   );

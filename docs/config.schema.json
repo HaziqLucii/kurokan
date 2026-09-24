@@ -2,55 +2,85 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://raw.githubusercontent.com/HaziqLucii/kurokan/main/docs/config.schema.json",
   "title": "Kurokan config",
-  "description": "~/.config/kurokan/config.json",
+  "description": "~/.config/kurokan/config.json (schema v2)",
   "type": "object",
   "additionalProperties": false,
   "properties": {
     "$schema": {
       "type": "string"
     },
-    "webdock": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "slug": {
-          "type": "string",
-          "description": "Webdock server slug (Servers -> your server -> Overview)."
-        },
-        "apiToken": {
-          "type": "string",
-          "description": "Webdock API token with read:servers scope."
-        }
-      },
-      "required": ["slug", "apiToken"]
-    },
-    "kuma": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "url": {
-          "type": "string",
-          "format": "uri",
-          "description": "Base URL of the Uptime Kuma instance."
-        },
-        "apiKey": {
-          "type": "string",
-          "description": "Uptime Kuma API key, sent as the Basic auth password against /metrics."
-        }
-      },
-      "required": ["url", "apiKey"]
+    "version": {
+      "const": 2
     },
     "pollIntervalSec": {
       "type": "integer",
       "minimum": 1,
       "default": 30,
-      "description": "How often both sources are polled, in seconds."
+      "description": "How often every source is polled, in seconds."
     },
     "theme": {
       "type": "string",
       "enum": ["system", "dark", "light"],
       "default": "system"
+    },
+    "hosts": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/sourceEntry" },
+      "description": "Host/VM vitals sources (Webdock, Prometheus node_exporter, ...)."
+    },
+    "uptime": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/sourceEntry" },
+      "description": "Uptime/monitor status sources (Uptime Kuma, Gatus, ...)."
+    },
+    "containers": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/sourceEntry" },
+      "description": "Container runtime sources (Docker, Podman)."
+    },
+    "history": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "retentionHours": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 24,
+          "description": "0 disables history and sparklines."
+        }
+      }
+    },
+    "notifications": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean", "default": false }
+      }
+    },
+    "layout": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "order": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": []
+        },
+        "incidents": { "type": "boolean", "default": true }
+      }
     }
   },
-  "required": ["webdock", "kuma"]
+  "required": ["version"],
+  "$defs": {
+    "sourceEntry": {
+      "type": "object",
+      "description": "id and provider are always required; every other property is provider-specific and settings-shaped (see docs/PROVIDERS.md).",
+      "properties": {
+        "id": { "type": "string" },
+        "provider": { "type": "string" }
+      },
+      "additionalProperties": { "type": "string" },
+      "required": ["id", "provider"]
+    }
+  }
 }

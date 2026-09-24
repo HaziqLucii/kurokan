@@ -14,10 +14,14 @@ import 'package:kurokan/features/vps/domain/host_vitals.dart';
 import 'package:kurokan/features/vps/domain/vitals_source.dart';
 import 'package:kurokan/features/vps/presentation/vitals_provider.dart';
 
-AppConfig _testConfig() => const AppConfig(
-  webdock: WebdockConfig(slug: 'test-server', apiToken: 'wd_test'),
-  kuma: KumaConfig(url: 'https://kuma.test', apiKey: 'uk1_test'),
-  pollInterval: Duration(seconds: 30),
+import '../../helpers/test_config.dart';
+
+AppConfig _testConfig() => testConfig(
+  webdockSlug: 'test-server',
+  webdockToken: 'wd_test',
+  kumaUrl: 'https://kuma.test',
+  kumaApiKey: 'uk1_test',
+  pollInterval: const Duration(seconds: 30),
 );
 
 class _FakeMonitorSource implements MonitorSource {

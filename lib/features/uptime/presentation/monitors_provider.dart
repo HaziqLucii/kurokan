@@ -10,9 +10,12 @@ import '../domain/monitor_status.dart';
 final monitorSourceProvider = Provider<MonitorSource>((ref) {
   final config = ref.watch(appConfigProvider);
   final client = ref.watch(httpClientProvider);
+  // firstUptime is a Phase 1.1 compatibility shim (single-source config);
+  // Phase 1.4 replaces this with real N-source polling.
+  final uptime = config.firstUptime!;
   return UptimeKumaMetricsSource(
-    url: config.kuma.url,
-    apiKey: config.kuma.apiKey,
+    url: uptime.settings['url']!,
+    apiKey: uptime.settings['apiKey']!,
     client: client,
   );
 });

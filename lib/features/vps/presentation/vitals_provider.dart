@@ -10,9 +10,12 @@ import '../domain/vitals_source.dart';
 final vitalsSourceProvider = Provider<VitalsSource>((ref) {
   final config = ref.watch(appConfigProvider);
   final client = ref.watch(httpClientProvider);
+  // firstHost is a Phase 1.1 compatibility shim (single-source config);
+  // Phase 1.4 replaces this with real N-source polling.
+  final host = config.firstHost!;
   return WebdockSource(
-    slug: config.webdock.slug,
-    apiToken: config.webdock.apiToken,
+    slug: host.settings['slug']!,
+    apiToken: host.settings['apiToken']!,
     client: client,
   );
 });
