@@ -5,6 +5,7 @@ import 'package:kurokan/core/config/config_schema.dart';
 import 'package:kurokan/core/providers/default_registry.dart';
 import 'package:kurokan/core/providers/provider_registry.dart';
 import 'package:kurokan/core/providers/provider_spec.dart';
+import 'package:kurokan/features/demo/demo_specs.dart';
 import 'package:kurokan/features/uptime/data/kuma_spec.dart';
 import 'package:kurokan/features/vps/data/webdock_spec.dart';
 
@@ -46,9 +47,9 @@ void main() {
     });
   });
 
-  test('defaultRegistry contains exactly webdock and kuma', () {
-    expect(defaultRegistry.hosts, [webdockSpec]);
-    expect(defaultRegistry.uptime, [kumaSpec]);
+  test('defaultRegistry contains every shipped provider', () {
+    expect(defaultRegistry.hosts, [webdockSpec, demoHostSpec]);
+    expect(defaultRegistry.uptime, [kumaSpec, demoUptimeSpec]);
     expect(defaultRegistry.containers, isEmpty);
   });
 
@@ -146,6 +147,28 @@ void main() {
         settings: {},
       );
       expect(kumaSpec.label(entry), 'my-uptime-id');
+    });
+  });
+
+  group('demo specs', () {
+    test('demoHostSpec.label is always "Demo data"', () {
+      const entry = SourceEntry(
+        kind: SourceKind.host,
+        id: 'demo-host',
+        provider: 'demo',
+        settings: {},
+      );
+      expect(demoHostSpec.label(entry), 'Demo data');
+    });
+
+    test('demoUptimeSpec.label is always "Demo data"', () {
+      const entry = SourceEntry(
+        kind: SourceKind.uptime,
+        id: 'demo-uptime',
+        provider: 'demo',
+        settings: {},
+      );
+      expect(demoUptimeSpec.label(entry), 'Demo data');
     });
   });
 }

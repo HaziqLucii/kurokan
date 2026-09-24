@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/config/app_config.dart';
+import '../../core/config/config_writer.dart';
 import '../../core/platform/platform_info.dart';
 import '../../core/theme/theme.dart';
 import '../../core/theme/tokens.dart';
@@ -10,6 +11,7 @@ import '../../shared/widgets/panel_title.dart';
 import '../../shared/widgets/window_frame.dart';
 import '../../version.dart';
 import '../dashboard/dashboard_header.dart';
+import '../demo/demo_config.dart';
 import '../settings/settings_screen.dart';
 
 class SetupScreen extends StatelessWidget {
@@ -146,6 +148,15 @@ class _SetupPanel extends StatelessWidget {
               ),
             ),
             DossierButton(label: 'Open config folder', onPressed: onOpenFolder),
+            // Only when there's no config file to lose: with an invalid
+            // (not just missing) config, the file on disk may hold real
+            // credentials with a typo, and this button must never
+            // silently overwrite it.
+            if (!isInvalid)
+              DossierButton(
+                label: 'Try with demo data',
+                onPressed: () => ConfigWriter(configPath).write(demoConfig()),
+              ),
           ],
         ),
         const SizedBox(height: 20),
@@ -157,11 +168,14 @@ class _SetupPanel extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                isInvalid
-                    ? 'INVALID CONFIG · WATCHING FOR FILE'
-                    : 'NO CONFIG · WATCHING FOR FILE',
-                style: AppTypography.footer.copyWith(color: t.ink),
+              Expanded(
+                child: Text(
+                  isInvalid
+                      ? 'INVALID CONFIG · WATCHING FOR FILE'
+                      : 'NO CONFIG · WATCHING FOR FILE',
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTypography.footer.copyWith(color: t.ink),
+                ),
               ),
               Text(
                 'RELOADS ON SAVE',
