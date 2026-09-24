@@ -512,3 +512,72 @@ workflow file deleted before merge). This is a deliberate pixel change,
 not a regression: the Vitals panel's tag in `dashboard_light.png`/
 `dashboard_dark.png` now reads "DEMO" instead of the old hardcoded
 "WEBDOCK", closing the cosmetic gap Phase 1.3 documented.
+
+## 2026-09-24 — Dashboard layout from config (Phase 1.5)
+
+`lib/features/dashboard/dashboard_layout.dart` is new: a pure
+`LayoutPlan planLayout(List<PanelEntry> panels, double width)` returning
+either `TwoColumn{wide, narrow}` (>= 900px, today's 62/38 flex + 40px gap)
+or `SingleColumn{panels}` (below it, every panel stacked in one scrollable
+column). Named `planLayout` rather than the plan doc's literal `plan`: a
+bare `plan` as both the top-level function and the natural name for
+`PanelGrid`'s own constructor parameter reads confusingly at the call site
+(`PanelGrid(plan: plan(panels, width))`), so the function got the more
+specific name instead.
+
+`lib/features/dashboard/panel_grid.dart` is new: `PanelGrid` renders
+whichever `LayoutPlan` it's given, replacing `dashboard_screen.dart`'s
+hardcoded `Row` (the actual two/single-column decision now lives in
+`dashboard_layout.dart`, not in the screen widget). The `_PanelColumn`
+helper that stacks multiple panels within one slot (added in Phase 1.4)
+moved here unchanged. Single-column cells are wrapped in a fixed
+`SizedBox(height: 420)`: a bare `ListView` child gets unbounded height,
+and `VitalsPanel`'s body puts a `GridView` inside an `Expanded`, which
+needs a finite constraint from somewhere above it.
+
+A host source that yields more than one host (a fleet-wide Prometheus
+exporter, Phase 2) now renders `HostTablePanel`
+(`lib/features/vps/presentation/host_table_panel.dart`) instead of
+`VitalsPanel` exploding into one detail tile per host:
+`VitalsPanel.build()`'s body is now a three-way `switch` on `hosts.length`
+(0 -> `_EmptyHostsBody`, 1 -> today's `_VitalsBody`, N -> `HostTablePanel`,
+a row per host with glyph/name/CPU%/MEM%/DISK%). Deviation from the plan's
+row shape: no "load" column. The plan assumed `HostVitals` would already
+carry a load figure by the time this phase landed, but that field is
+Phase 2.0's `extra: Map<String,String>?` addition, which hasn't shipped
+yet; adding a load column now would mean inventing a field a phase early.
+`_statusGlyphFor` (private, duplicated nowhere else before this phase)
+moved out of `vitals_panel.dart` into a shared
+`lib/features/vps/presentation/host_status_glyph.dart` (`hostStatusGlyph`)
+since both the detail view and the new table need the exact same
+`HostVitals.status` vocabulary; this is the same domain type used twice,
+not two coincidentally-similar switches (unlike `monitor_row.dart`'s own
+independent glyph mapping for a different domain, which stays as its own
+small duplicate per existing convention).
+
+No current provider (webdock, demo) ever yields more than one host, so
+`HostTablePanel` has no live path to exercise outside a test that injects
+a fake `HostsSource` returning 2+ `HostVitals` — added to
+`dashboard_screen_test.dart`, plus a dedicated
+`host_table_panel_test.dart` for the row/column rendering itself and
+`host_status_glyph_test.dart` for the glyph mapping now that it is a
+standalone shared function. `dashboard_layout_test.dart` covers
+`planLayout` directly (breakpoint boundary, empty panel list, multiple
+panels per slot) per the plan's "pure plan cases" requirement, and a new
+`dashboard_screen_test.dart` case pumps the full dashboard at 800px
+(below the 900px breakpoint) and asserts the uptime panel's top-left `dy`
+is above the vitals panel's, per the plan's explicit "widget test at
+800px" requirement.
+
+`config.example.json` and `docs/config.schema.json` were already
+rewritten to schema v2 in an earlier phase (Phase 1.1); the plan's mention
+of rewriting them here was stale by the time this phase landed, so
+nothing changed in either file.
+
+Verified no golden regeneration was needed: the 1100x720 golden harness
+renders well above the 900px breakpoint, so `TwoColumn` (identical 62/38
+flex + 40px gap to the pre-Phase-1.5 hardcoded `Row`) is still what
+renders. Confirmed by diffing the local macOS pixel-mismatch percentage
+against unmodified `main` before committing (both `2.22%`/`2.20%`,
+identical): the usual macOS-vs-Linux text-rasterization gap this repo has
+always had locally, not a change from this phase.

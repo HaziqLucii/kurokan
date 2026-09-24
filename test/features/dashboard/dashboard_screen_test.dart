@@ -11,10 +11,13 @@ import 'package:kurokan/core/config/config_schema.dart';
 import 'package:kurokan/core/net/fetch_error.dart';
 import 'package:kurokan/features/uptime/domain/monitor_source.dart';
 import 'package:kurokan/features/uptime/domain/monitor_status.dart';
+import 'package:kurokan/features/uptime/presentation/monitor_panel.dart';
 import 'package:kurokan/features/uptime/presentation/uptime_provider.dart';
 import 'package:kurokan/features/vps/domain/host_vitals.dart';
 import 'package:kurokan/features/vps/domain/hosts_source.dart';
+import 'package:kurokan/features/vps/presentation/host_table_panel.dart';
 import 'package:kurokan/features/vps/presentation/hosts_provider.dart';
+import 'package:kurokan/features/vps/presentation/vitals_panel.dart';
 
 import '../../helpers/test_config.dart';
 
@@ -97,9 +100,12 @@ Widget _harness({
   );
 }
 
-Future<void> _setWindowSize(WidgetTester tester) async {
-  await tester.binding.setSurfaceSize(const Size(1100, 720));
-  tester.view.physicalSize = const Size(1100, 720);
+Future<void> _setWindowSize(
+  WidgetTester tester, {
+  Size size = const Size(1100, 720),
+}) async {
+  await tester.binding.setSurfaceSize(size);
+  tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1.0;
   addTearDown(() async {
     await tester.binding.setSurfaceSize(null);
@@ -561,4 +567,61 @@ void main() {
 
     await _disposeTree(tester);
   });
+
+  testWidgets(
+    'below the layout breakpoint, panels stack single-column with the '
+    'uptime panel above the vitals panel',
+    (tester) async {
+      await _setWindowSize(tester, size: const Size(800, 1400));
+      final monitors = _FakeMonitorSource(
+        () async => const [
+          MonitorStatus(
+            id: '1',
+            name: 'Up Service',
+            type: 'http',
+            state: MonitorState.up,
+          ),
+        ],
+      );
+      final vitals = _FakeHostsSource(() async => [_okVitals()]);
+
+      await tester.pumpWidget(_harness(monitors: monitors, vitals: vitals));
+      await tester.pumpAndSettle();
+
+      final uptimeTop = tester.getTopLeft(find.byType(MonitorPanel)).dy;
+      final vitalsTop = tester.getTopLeft(find.byType(VitalsPanel)).dy;
+      expect(uptimeTop, lessThan(vitalsTop));
+
+      await _disposeTree(tester);
+    },
+  );
+
+  testWidgets(
+    'a host source that yields several hosts in one fetch renders the '
+    'compact host table instead of the single-host detail view',
+    (tester) async {
+      await _setWindowSize(tester);
+      final monitors = _FakeMonitorSource(
+        () async => const [
+          MonitorStatus(
+            id: '1',
+            name: 'Up Service',
+            type: 'http',
+            state: MonitorState.up,
+          ),
+        ],
+      );
+      final vitals = _FakeHostsSource(
+        () async => [_okVitals(slug: 'fleet-a'), _okVitals(slug: 'fleet-b')],
+      );
+
+      await tester.pumpWidget(_harness(monitors: monitors, vitals: vitals));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(HostTablePanel), findsOneWidget);
+      expect(find.text('Test Server'), findsNWidgets(2));
+
+      await _disposeTree(tester);
+    },
+  );
 }

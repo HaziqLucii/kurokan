@@ -12,7 +12,9 @@ import '../settings/settings_screen.dart';
 import '../uptime/presentation/uptime_provider.dart';
 import '../vps/presentation/hosts_provider.dart';
 import 'dashboard_header.dart';
+import 'dashboard_layout.dart';
 import 'last_refresh_provider.dart';
+import 'panel_grid.dart';
 import 'panel_registry.dart';
 
 const _manualRefreshDebounce = Duration(seconds: 5);
@@ -72,11 +74,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         ? 'Refreshing'
         : '↻ Refresh';
 
-    final widePanels = panels.where((p) => p.slot == PanelSlot.wide).toList();
-    final narrowPanels = panels
-        .where((p) => p.slot == PanelSlot.narrow)
-        .toList();
-
     return CallbackShortcuts(
       bindings: {
         LogicalKeySet(LogicalKeyboardKey.meta, LogicalKeyboardKey.keyR):
@@ -104,50 +101,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 ),
                 const SizedBox(height: 20),
                 Expanded(
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Expanded(
-                        flex: 62,
-                        child: _PanelColumn(panels: widePanels),
-                      ),
-                      const SizedBox(width: 40),
-                      Expanded(
-                        flex: 38,
-                        child: _PanelColumn(panels: narrowPanels),
-                      ),
-                    ],
-                  ),
+                  child: PanelGrid(plan: planLayout(panels, containerWidth)),
                 ),
               ],
             ),
           ),
         ),
       ),
-    );
-  }
-}
-
-/// Phase 1.4 scope: stacks multiple panels in the same slot vertically.
-/// The actual responsive multi-panel layout (breakpoints, single column)
-/// is Phase 1.5's job; this just has to not break when a config has more
-/// than one source of a kind.
-class _PanelColumn extends StatelessWidget {
-  final List<PanelEntry> panels;
-  const _PanelColumn({required this.panels});
-
-  @override
-  Widget build(BuildContext context) {
-    if (panels.isEmpty) return const SizedBox.shrink();
-    if (panels.length == 1) return panels.first.build();
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        for (final panel in panels) ...[
-          Expanded(child: panel.build()),
-          if (panel.key != panels.last.key) const SizedBox(height: 24),
-        ],
-      ],
     );
   }
 }
