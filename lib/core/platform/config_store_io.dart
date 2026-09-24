@@ -56,6 +56,9 @@ class _IoConfigStore implements ConfigStore {
     final tempFile = File('$path.tmp');
     tempFile.writeAsStringSync(text);
     final chmodResult = Process.runSync('chmod', ['600', tempFile.path]);
+    // Not covered by a test: triggering a real chmod failure here needs
+    // mocking Process.runSync (a static dart:io call, not injected) or a
+    // filesystem race between the write above and this call.
     if (chmodResult.exitCode != 0) {
       tempFile.deleteSync();
       throw StateError('chmod failed: ${chmodResult.stderr}');
@@ -76,6 +79,9 @@ class _IoConfigStore implements ConfigStore {
           debounce = Timer(const Duration(milliseconds: 300), () {
             if (!controller.isClosed) controller.add(null);
           });
+          // onError below is not covered by a test: triggering a real
+          // watch error (e.g. the directory disappearing mid-watch) is
+          // OS-watcher-dependent (inotify vs FSEvents) and flaky to force.
         }, onError: (_) {});
       },
       onCancel: () {

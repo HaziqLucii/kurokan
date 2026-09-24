@@ -25,6 +25,9 @@ class ConfigLoader {
     try {
       raw = _store.read();
     } catch (e) {
+      // Not covered by a test: reaching this needs a file that exists()
+      // returns true for but read() still fails on (e.g. chmod 000), which
+      // is permission-flaky across dev machines and CI runners.
       throw ConfigError(filePath, 'unreadable: $e');
     }
 

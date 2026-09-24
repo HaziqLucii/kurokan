@@ -43,5 +43,26 @@ void main() {
       final store = createConfigStore(env: const {}, home: '/mem/home');
       expect(store.path, '/mem/home/.config/kurokan/config.json');
     });
+
+    test('read() throws when the path has never been written', () {
+      final store = createConfigStoreForPath('/mem/missing/config.json');
+      expect(store.read, throwsStateError);
+    });
+
+    test('ensureDir() is a no-op (there is no real filesystem)', () {
+      final store = createConfigStoreForPath('/mem/noop/config.json');
+      expect(store.ensureDir, returnsNormally);
+    });
+
+    test('dir falls back to "." for a path with no slash', () {
+      final store = createConfigStoreForPath('bare.json');
+      expect(store.dir, '.');
+    });
+
+    test('createConfigStoreForDir assumes a config.json filename', () {
+      final store = createConfigStoreForDir('/mem/for-dir');
+      expect(store.path, '/mem/for-dir/config.json');
+      expect(store.dir, '/mem/for-dir');
+    });
   });
 }
