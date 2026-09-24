@@ -43,7 +43,7 @@ final panelRegistryProvider = Provider<List<PanelEntry>>((ref) {
     final async = ref.watch(uptimeProvider(uptime.id));
     entries.add(
       PanelEntry(
-        key: 'uptime:${uptime.id}',
+        key: uptime.panelKey,
         sourceId: uptime.id,
         slot: PanelSlot.wide,
         fetchedAt: async.value?.fetchedAt,
@@ -57,7 +57,7 @@ final panelRegistryProvider = Provider<List<PanelEntry>>((ref) {
     final async = ref.watch(hostsProvider(host.id));
     entries.add(
       PanelEntry(
-        key: 'host:${host.id}',
+        key: host.panelKey,
         sourceId: host.id,
         slot: PanelSlot.narrow,
         fetchedAt: async.value?.fetchedAt,

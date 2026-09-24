@@ -42,8 +42,11 @@ class _FakeHostsSource implements HostsSource {
   Future<List<HostVitals>> fetch() => impl();
 }
 
-HostVitals _okVitals({UsageLevel cpuLevel = UsageLevel.ok}) => HostVitals(
-  slug: 'test-server',
+HostVitals _okVitals({
+  UsageLevel cpuLevel = UsageLevel.ok,
+  String slug = 'test-server',
+}) => HostVitals(
+  slug: slug,
   name: 'Test Server',
   status: 'running',
   ipv4: '1.2.3.4',
@@ -309,8 +312,12 @@ void main() {
           ),
         ],
       );
-      final vitalsA = _FakeHostsSource(() async => [_okVitals()]);
-      final vitalsB = _FakeHostsSource(() async => [_okVitals()]);
+      final vitalsA = _FakeHostsSource(
+        () async => [_okVitals(slug: 'first-server')],
+      );
+      final vitalsB = _FakeHostsSource(
+        () async => [_okVitals(slug: 'second-server')],
+      );
 
       await tester.pumpWidget(
         ProviderScope(
@@ -325,10 +332,12 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Both host panels render (one per configured host), stacked via
-      // _PanelColumn's multi-panel branch: 2 "CPU" texts per panel
-      // (label + reading), so 4 total confirms exactly two panels.
-      expect(find.textContaining('CPU'), findsNWidgets(4));
+      // Each host panel renders its own source's slug: this fails if the
+      // second panel were accidentally wired to the first host's provider
+      // instead of its own (a two-panel test using identical fake data on
+      // both sides wouldn't catch that).
+      expect(find.text('first-server'), findsOneWidget);
+      expect(find.text('second-server'), findsOneWidget);
 
       await _disposeTree(tester);
     },
@@ -348,7 +357,9 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(
-        find.textContaining('NETWORK · connection refused · CHECK'),
+        find.textContaining(
+          'NETWORK · connection refused · CHECK KUMA CONNECTIVITY',
+        ),
         findsOneWidget,
       );
 

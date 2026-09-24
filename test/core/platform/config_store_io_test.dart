@@ -51,6 +51,26 @@ void main() {
     },
   );
 
+  test('changes() fires when an arbitrarily-named temp file is renamed onto '
+      'the config file (an external atomic write, not our own .tmp)', () async {
+    final store = createConfigStoreForDir(tempDir.path);
+    final events = <void>[];
+    final sub = store.changes().listen(events.add);
+
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+    // e.g. `jq ... > .config.json.swp && mv .config.json.swp config.json`,
+    // or a JetBrains/vim "safe write": on Linux this reports as a single
+    // FileSystemMoveEvent whose `path` is the temp name, not config.json.
+    final tempFile = File('${tempDir.path}/.config.json.swp123')
+      ..writeAsStringSync('{}');
+    tempFile.renameSync('${tempDir.path}/config.json');
+
+    await Future<void>.delayed(const Duration(milliseconds: 500));
+    expect(events.length, 1);
+
+    await sub.cancel();
+  });
+
   test('createConfigStore resolves KUROKAN_CONFIG override and falls back', () {
     final overridden = createConfigStore(
       env: {'KUROKAN_CONFIG': '${tempDir.path}/custom.json'},

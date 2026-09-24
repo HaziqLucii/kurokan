@@ -401,8 +401,9 @@ host shows its own registry label, more than one falls back to a
 host to name.
 
 `dashboard_screen.dart`'s two panel slots each render a `_PanelColumn`
-that stacks every `PanelEntry` in that slot with a divider between them
-when a config has more than one source of a kind. This is Phase 1.4
+that stacks every `PanelEntry` in that slot, with a fixed-height `SizedBox`
+gap (not a visible divider line) between them, when a config has more than
+one source of a kind. This is Phase 1.4
 scope only (make it not break); the actual responsive multi-panel layout
 (breakpoints, collapsing to a single column) is Phase 1.5's job, noted
 in-code.
@@ -457,6 +458,34 @@ phase: `vitals_panel.dart`'s "stopped"/"suspended" status-glyph branch and
 `dashboard_screen.dart`'s settings-navigation callback, both pre-existing
 gaps untouched by this diff; `_EmptyHostsBody` stays untested for the
 reason given above (no current provider can reach it).
+
+Found and fixed during `refuter` review: `config_store_io.dart`'s new
+basename filter (above) only checked `event.path`, which is correct for
+the app's own atomic write (`config.json.tmp` renamed onto `config.json`,
+reported as name-matching events on both macOS FSEvents and Linux
+inotify) but silently dropped an *external* atomic write, e.g. `jq ... >
+.swp && mv .swp config.json`, a JetBrains "safe write", or vim's default
+`backupcopy=no`. On Linux, inotify reports that rename as a single
+`FileSystemMoveEvent` whose `path` is the old temp name and whose
+`destination` is `config.json`; the filter saw a non-matching `path` and
+dropped it before ever looking at `destination`. Before this phase, any
+event in the directory triggered a reload, so this was a real regression
+on a target platform, not just a missed test case. Fixed by also matching
+`FileSystemMoveEvent.destination`'s basename; covered by a new
+`config_store_io_test.dart` case that renames an arbitrarily-named temp
+file onto the config path (passes on macOS via the pre-existing
+Delete+Create path, and is the case that actually exercises the new
+branch on Linux CI). Also caught and fixed in the same pass:
+`panel_registry.dart` was hand-building `'uptime:${id}'`/`'host:${id}'`
+instead of reusing `SourceEntry.panelKey` (`config_schema.dart`), which
+would have been a second definition to keep in sync by hand; a couple of
+new tests were shallower than their descriptions claimed (the two-host
+stacking test used identical fake data on both hosts, so it couldn't have
+caught the second panel being wired to the wrong source; the uptime
+first-fetch-error assertion stopped short of the provider tag it claimed
+to check; the `polledFamily` "independent interval" test gave both args
+the same 30s interval, so a shared timer would have passed too) — all
+three tightened to actually verify what their names say.
 
 Golden images regenerated (same Linux-only technique as Phase 1.3: a
 temporary push-triggered workflow running `flutter test -t golden
