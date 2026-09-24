@@ -1,0 +1,25 @@
+name: _tmp golden regen
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  regen:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          flutter-version: 3.44.7
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter test -t golden --update-goldens
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: linux-goldens
+          path: test/goldens/*.png
+          retention-days: 1
