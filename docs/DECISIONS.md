@@ -80,3 +80,43 @@ Full detail in `plans/2026-09-23-v1-implementation-plan.md` section 6,
 | D5 | Network tile footer reads `· MTD`, not `· 30D` (Webdock's figure is month-to-date) |
 | D6 | Monitor types are Kuma's raw `monitor_type` uppercased, not the design's `HTTPS`/`SMTP` |
 | D7 | macOS traffic lights are the real native ones, not hollow monochrome circles |
+
+## 2026-09-24 — dart:io seam (Phase 1.0)
+
+All `dart:io` usage outside data sources now sits behind `lib/core/platform/`:
+`ConfigStore` (io/memory), `environment`, `openFolder`, `configureNativeWindow`,
+and a split `core/net/http_client.dart` (io/web). `ConfigLoader`/`ConfigWriter`/
+`ConfigWatcher` became thin wrappers over a `ConfigStore`; their public API and
+existing tests (including the 0600-permission test) are unchanged. A guard
+test (`test/core/platform/no_dart_io_test.dart`) greps `lib/` and fails if
+`dart:io` appears outside the seam, `core/net/*_io.dart`, or
+`features/**/data/**`. Pure refactor: desktop behaviour is unchanged.
+
+Scope trim vs. the plan's literal sketch: `core/net/platform_errors.dart`
+(a `describeIoError` helper unifying `SocketException`/`TlsException`
+handling) was skipped. `webdock_source.dart` and
+`uptime_kuma_metrics_source.dart` still catch those dart:io exception types
+directly, which the guard explicitly allows. This is fine for a `flutter
+build web` JS (dart2js) target, since dart2js tolerates a `dart:io` import
+and only throws at actual use. It is NOT fine for a `--wasm` target
+(dart2wasm has no `dart:io` at all) — the Phase 4 plan already avoids
+`--wasm` for unrelated reasons (CanvasKit, no COOP/COEP on GitHub Pages), so
+this isn't urgent, but if a wasm build is ever considered, build
+`platform_errors.dart` and route these two sources through it first.
+
+`PlatformInfo.isMacOS`/`isLinux` now use `defaultTargetPlatform` (Flutter,
+web-safe) instead of `dart:io Platform.isMacOS`. Behaviourally identical on
+real desktop builds. Side effect: `flutter_test` forces
+`defaultTargetPlatform` to a non-macOS value by default, so widget tests on
+a macOS dev machine now see `PlatformInfo.isMacOS == false` unless a test
+explicitly sets `debugDefaultTargetPlatformOverride`. No current test
+depended on the old value; a future test asserting macOS-only chrome needs
+that override.
+
+The memory-backed `ConfigStore` (web/demo, Phase 1.3+) keys its `_watchers`
+map by the exact resolved file path. If a future demo/web config uses a
+`KUROKAN_CONFIG`-style override with a non-default filename, a directory-only
+`ConfigWatcher` (keyed via a synthetic `$dir/config.json`) will not see
+writes to a different filename in that same directory. Not reachable today
+(memory store isn't wired into the real app yet); revisit when Phase 1.3
+wires up demo mode.

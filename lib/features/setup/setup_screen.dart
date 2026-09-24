@@ -1,8 +1,7 @@
-import 'dart:io' show Platform;
-
 import 'package:flutter/material.dart';
 
 import '../../core/config/app_config.dart';
+import '../../core/platform/platform_info.dart';
 import '../../core/theme/theme.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/theme/typography.dart';
@@ -87,7 +86,7 @@ class _SetupPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = context.tokens;
-    final osLabel = Platform.isMacOS ? 'MACOS' : 'LINUX';
+    final osLabel = PlatformInfo.isMacOS ? 'MACOS' : 'LINUX';
     final isInvalid = error != null && !error!.notFound;
     final tag = isInvalid ? 'INVALID CONFIG' : 'GET STARTED';
 
