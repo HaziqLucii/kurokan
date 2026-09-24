@@ -8,9 +8,9 @@ import 'core/config/app_config.dart';
 import 'core/config/config_loader.dart';
 import 'core/config/config_provider.dart';
 import 'core/config/config_watcher.dart';
-import 'core/config/legacy_schema.dart';
 import 'core/platform/environment.dart';
 import 'core/platform/open_folder.dart';
+import 'core/providers/default_registry.dart';
 import 'features/setup/setup_screen.dart';
 
 class AppRoot extends StatefulWidget {
@@ -33,7 +33,7 @@ class _AppRootState extends State<AppRoot> {
     _loader = ConfigLoader(
       env: environment,
       home: environment['HOME'] ?? '',
-      schema: legacyConfigSchema,
+      schema: defaultRegistry,
     );
     _loader.ensureDir();
     _tryLoad();

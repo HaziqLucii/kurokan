@@ -1,43 +1,11 @@
 import 'package:kurokan/core/config/app_config.dart';
 import 'package:kurokan/core/config/config_schema.dart';
+import 'package:kurokan/core/providers/default_registry.dart';
 
-/// [ConfigSchema] for tests: knows exactly the two providers the app
-/// supports pre-Phase-1.2 (webdock, kuma). Mirrors
-/// `lib/core/config/legacy_schema.dart`, kept separate since `lib/` and
-/// `test/` don't share importable code.
-const testConfigSchema = _TestConfigSchema();
-
-class _TestConfigSchema implements ConfigSchema {
-  const _TestConfigSchema();
-
-  static const _webdockFields = [
-    FieldSpec(key: 'slug', label: 'Slug', kind: FieldKind.text),
-    FieldSpec(key: 'apiToken', label: 'API token', kind: FieldKind.secret),
-  ];
-
-  static const _kumaFields = [
-    FieldSpec(key: 'url', label: 'URL', kind: FieldKind.url),
-    FieldSpec(key: 'apiKey', label: 'API key', kind: FieldKind.secret),
-  ];
-
-  @override
-  List<FieldSpec>? hostFields(String provider) =>
-      provider == 'webdock' ? _webdockFields : null;
-
-  @override
-  List<FieldSpec>? uptimeFields(String provider) =>
-      provider == 'kuma' ? _kumaFields : null;
-
-  @override
-  List<FieldSpec>? containerFields(String provider) => null;
-
-  @override
-  List<String> providerIds(SourceKind kind) => switch (kind) {
-    SourceKind.host => const ['webdock'],
-    SourceKind.uptime => const ['kuma'],
-    SourceKind.containers => const [],
-  };
-}
+/// The real registry every provider ships with (webdock, kuma). Used
+/// directly as the [ConfigSchema] in tests instead of a hand-duplicated
+/// fixture, so tests validate against what the app actually recognizes.
+const testConfigSchema = defaultRegistry;
 
 /// Builds an [AppConfig] with one webdock host and one kuma uptime source,
 /// the shape every test used before Phase 1.1's N-source model landed.
