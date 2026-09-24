@@ -9,21 +9,22 @@ import '../../../core/providers/registry_provider.dart';
 import '../domain/monitor_source.dart';
 import '../domain/monitor_status.dart';
 
-final monitorSourceProvider = Provider<MonitorSource>((ref) {
+final uptimeSourceProvider = Provider.family<MonitorSource, String>((
+  ref,
+  sourceId,
+) {
   final config = ref.watch(appConfigProvider);
   final client = ref.watch(httpClientProvider);
   final registry = ref.watch(providerRegistryProvider);
-  // firstUptime is a Phase 1.1 compatibility shim (single-source config);
-  // Phase 1.4 replaces this with real N-source polling.
-  final uptime = config.firstUptime!;
-  // Safe: uptime.provider was already validated against this same registry
+  final entry = config.uptime.firstWhere((u) => u.id == sourceId);
+  // Safe: entry.provider was already validated against this same registry
   // when the config was parsed (AppConfig.fromJson rejects unknown
   // providers), so the spec is guaranteed to exist here.
-  final spec = registry.uptimeSpec(uptime.provider)!;
-  return spec.create(uptime, SourceDeps(client: client, clock: clock));
+  final spec = registry.uptimeSpec(entry.provider)!;
+  return spec.create(entry, SourceDeps(client: client, clock: clock));
 });
 
-final monitorsProvider = polled<List<MonitorStatus>>(
-  (ref) => ref.watch(appConfigProvider).pollInterval,
-  (ref) => ref.watch(monitorSourceProvider).fetch(),
+final uptimeProvider = polledFamily<List<MonitorStatus>, String>(
+  (ref, sourceId) => ref.watch(appConfigProvider).pollInterval,
+  (ref, sourceId) => ref.watch(uptimeSourceProvider(sourceId)).fetch(),
 );

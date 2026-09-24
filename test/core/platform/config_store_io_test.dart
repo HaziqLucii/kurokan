@@ -29,6 +29,28 @@ void main() {
     await sub.cancel();
   });
 
+  test(
+    'changes() ignores writes to unrelated files in the same directory',
+    () async {
+      final store = createConfigStoreForDir(tempDir.path);
+      final events = <void>[];
+      final sub = store.changes().listen(events.add);
+
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      // A stray file (editor swap file, .DS_Store, an unrelated JSONL) must
+      // not trigger a reload: only config.json and config.json.tmp should.
+      File('${tempDir.path}/.DS_Store').writeAsStringSync('junk');
+      await Future<void>.delayed(const Duration(milliseconds: 500));
+      expect(events, isEmpty);
+
+      File('${tempDir.path}/config.json.tmp').writeAsStringSync('{}');
+      await Future<void>.delayed(const Duration(milliseconds: 500));
+      expect(events.length, 1);
+
+      await sub.cancel();
+    },
+  );
+
   test('createConfigStore resolves KUROKAN_CONFIG override and falls back', () {
     final overridden = createConfigStore(
       env: {'KUROKAN_CONFIG': '${tempDir.path}/custom.json'},

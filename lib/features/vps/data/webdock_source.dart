@@ -6,10 +6,10 @@ import 'package:http/http.dart' as http;
 
 import '../../../core/net/fetch_error.dart';
 import '../domain/host_vitals.dart';
-import '../domain/vitals_source.dart';
+import '../domain/hosts_source.dart';
 import 'webdock_dto.dart';
 
-class WebdockSource implements VitalsSource {
+class WebdockSource implements HostsSource {
   static const _baseUrl = 'https://api.webdock.io/v1';
 
   final String slug;
@@ -23,7 +23,7 @@ class WebdockSource implements VitalsSource {
   });
 
   @override
-  Future<HostVitals> fetch() async {
+  Future<List<HostVitals>> fetch() async {
     final results = await Future.wait([
       _get('/servers/$slug'),
       _get('/servers/$slug/metrics/now'),
@@ -39,23 +39,25 @@ class WebdockSource implements VitalsSource {
     }
     final status = metrics.resourceUsageStatus;
 
-    return HostVitals(
-      slug: server.slug,
-      name: server.name,
-      status: server.status,
-      ipv4: server.ipv4 ?? '',
-      // resourceUsageStatus.*.used/allowed are documented only as "the
-      // metric's base unit" for all four resources (R1 in the plan). MiB/
-      // GiB below follow the raw cpu/memory/disk/network metrics families,
-      // which the spec documents explicitly elsewhere; CPU-seconds is the
-      // least certain of the four and is the one pending a real sample.
-      cpu: _gauge(status.cpu, unit: 'CPU-s'),
-      memory: _gauge(status.memory, unit: 'MiB'),
-      disk: _gauge(status.disk, unit: 'MiB'),
-      network: _gauge(status.network, unit: 'GiB'),
-      processCount: metrics.processCount,
-      sampledAt: metrics.memorySampledAt,
-    );
+    return [
+      HostVitals(
+        slug: server.slug,
+        name: server.name,
+        status: server.status,
+        ipv4: server.ipv4 ?? '',
+        // resourceUsageStatus.*.used/allowed are documented only as "the
+        // metric's base unit" for all four resources (R1 in the plan). MiB/
+        // GiB below follow the raw cpu/memory/disk/network metrics families,
+        // which the spec documents explicitly elsewhere; CPU-seconds is the
+        // least certain of the four and is the one pending a real sample.
+        cpu: _gauge(status.cpu, unit: 'CPU-s'),
+        memory: _gauge(status.memory, unit: 'MiB'),
+        disk: _gauge(status.disk, unit: 'MiB'),
+        network: _gauge(status.network, unit: 'GiB'),
+        processCount: metrics.processCount,
+        sampledAt: metrics.memorySampledAt,
+      ),
+    ];
   }
 
   Gauge _gauge(ResourceUsageMetricStatusDTO dto, {required String unit}) =>

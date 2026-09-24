@@ -41,7 +41,7 @@ void main() {
         return http.Response(_serverBody, 200);
       });
 
-      final vitals = await _sourceWith(client).fetch();
+      final vitals = (await _sourceWith(client).fetch()).single;
 
       expect(
         requestedPaths,
@@ -147,14 +147,14 @@ void main() {
         }
         return http.Response(_serverBody, 200);
       });
-      final vitals = await _sourceWith(client).fetch();
+      final vitals = (await _sourceWith(client).fetch()).single;
       expect(vitals.processCount, isNull);
     },
   );
 
   test('sampledAt is converted to local time', () async {
     final client = _fixtureClient();
-    final vitals = await _sourceWith(client).fetch();
+    final vitals = (await _sourceWith(client).fetch()).single;
     expect(vitals.sampledAt.isUtc, isFalse);
     expect(vitals.sampledAt.toUtc(), DateTime.parse('2026-09-23T10:30:00Z'));
   });
