@@ -7,6 +7,9 @@ import 'host_status_glyph.dart';
 
 const hostTableColumnWidths = [22.0, 52.0, 52.0, 52.0];
 
+String _percentText(double? percent) =>
+    percent == null ? '—' : '${percent.round()}%';
+
 /// A source that yields several hosts (a fleet-wide Prometheus exporter,
 /// Phase 2) renders as a compact row-per-host table instead of exploding
 /// into one detail tile per host.
@@ -103,7 +106,7 @@ class _HostRow extends StatelessWidget {
           SizedBox(
             width: hostTableColumnWidths[1],
             child: Text(
-              '${host.cpu.percentUsed.round()}%',
+              _percentText(host.cpu.percentUsed),
               textAlign: TextAlign.right,
               style: rowStyle,
             ),
@@ -111,7 +114,7 @@ class _HostRow extends StatelessWidget {
           SizedBox(
             width: hostTableColumnWidths[2],
             child: Text(
-              '${host.memory.percentUsed.round()}%',
+              _percentText(host.memory?.percentUsed),
               textAlign: TextAlign.right,
               style: rowStyle,
             ),
@@ -119,7 +122,7 @@ class _HostRow extends StatelessWidget {
           SizedBox(
             width: hostTableColumnWidths[3],
             child: Text(
-              '${host.disk.percentUsed.round()}%',
+              _percentText(host.disk?.percentUsed),
               textAlign: TextAlign.right,
               style: rowStyle,
             ),

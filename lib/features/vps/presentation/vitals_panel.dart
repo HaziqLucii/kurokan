@@ -143,29 +143,23 @@ class _VitalsBody extends StatelessWidget {
                     childAspectRatio: (constraints.maxWidth / columns) / 112,
                     physics: const NeverScrollableScrollPhysics(),
                     children: [
-                      StatTile(
-                        number: vitals.cpu.percentUsed.round().toString(),
-                        unit: '%',
+                      _percentTile(
                         label: 'CPU',
-                        sub:
-                            '${vitals.cpu.used.toStringAsFixed(1)} / ${vitals.cpu.allowed.toStringAsFixed(1)} ${vitals.cpu.unit}',
-                        level: vitals.cpu.level,
+                        gauge: vitals.cpu,
+                        sub: (g) =>
+                            '${g.used.toStringAsFixed(1)} / ${_fixed(g.allowed)} ${g.unit}',
                       ),
-                      StatTile(
-                        number: vitals.memory.percentUsed.round().toString(),
-                        unit: '%',
+                      _percentTile(
                         label: 'Mem',
-                        sub:
-                            '${(vitals.memory.used / 1024).toStringAsFixed(1)} / ${(vitals.memory.allowed / 1024).toStringAsFixed(1)} GB',
-                        level: vitals.memory.level,
+                        gauge: vitals.memory,
+                        sub: (g) =>
+                            '${(g.used / 1024).toStringAsFixed(1)} / ${_fixed(g.allowed != null ? g.allowed! / 1024 : null)} GB',
                       ),
-                      StatTile(
-                        number: vitals.disk.percentUsed.round().toString(),
-                        unit: '%',
+                      _percentTile(
                         label: 'Disk',
-                        sub:
-                            '${(vitals.disk.used / 1024).toStringAsFixed(1)} / ${(vitals.disk.allowed / 1024).toStringAsFixed(1)} GB',
-                        level: vitals.disk.level,
+                        gauge: vitals.disk,
+                        sub: (g) =>
+                            '${(g.used / 1024).toStringAsFixed(1)} / ${_fixed(g.allowed != null ? g.allowed! / 1024 : null)} GB',
                       ),
                       _networkTile(vitals.network),
                     ],
@@ -180,10 +174,19 @@ class _VitalsBody extends StatelessWidget {
     );
   }
 
-  StatTile _networkTile(Gauge network) {
-    final scale = _networkScale(network.allowed);
+  // Network shows the scaled absolute used/allowed, not a percent, so it
+  // needs its own null-allowed fallback rather than sharing _percentTile.
+  // A gauge with `used` but no `allowed` (a genuinely uncapped resource) is
+  // treated the same as an absent gauge for now: showing "used, no cap" in
+  // a tile built for a used/allowed pair is a display this phase doesn't
+  // need to design yet, since no current or Phase 2 provider reports one.
+  StatTile _networkTile(Gauge? network) {
+    if (network == null || network.allowed == null) {
+      return const StatTile.unavailable(label: 'Network');
+    }
+    final scale = _networkScale(network.allowed!);
     final total = network.used / scale.value;
-    final allowed = network.allowed / scale.value;
+    final allowed = network.allowed! / scale.value;
     return StatTile(
       number: total.toStringAsFixed(1),
       unit: ' ${scale.unit}',
@@ -193,4 +196,23 @@ class _VitalsBody extends StatelessWidget {
       level: network.level,
     );
   }
+
+  StatTile _percentTile({
+    required String label,
+    required Gauge? gauge,
+    required String Function(Gauge gauge) sub,
+  }) {
+    if (gauge == null || gauge.percentUsed == null) {
+      return StatTile.unavailable(label: label);
+    }
+    return StatTile(
+      number: gauge.percentUsed!.round().toString(),
+      unit: '%',
+      label: label,
+      sub: sub(gauge),
+      level: gauge.level,
+    );
+  }
 }
+
+String _fixed(double? value) => value == null ? '—' : value.toStringAsFixed(1);

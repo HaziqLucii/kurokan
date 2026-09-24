@@ -624,4 +624,62 @@ void main() {
       await _disposeTree(tester);
     },
   );
+
+  testWidgets('a host missing memory/disk/network gauges renders "—" for those '
+      'tiles instead of crashing (a provider that cannot report them)', (
+    tester,
+  ) async {
+    await _setWindowSize(tester);
+    final monitors = _FakeMonitorSource(
+      // responseTime/uptime24h are set so this monitor row renders no "—"
+      // of its own: the count below isolates the vitals fallback tiles.
+      () async => const [
+        MonitorStatus(
+          id: '1',
+          name: 'Up Service',
+          type: 'http',
+          state: MonitorState.up,
+          responseTime: Duration(milliseconds: 42),
+          uptime24h: 0.999,
+        ),
+      ],
+    );
+    final vitals = _FakeHostsSource(
+      () async => [
+        HostVitals(
+          slug: 'bare-metal',
+          name: 'Bare Metal',
+          status: 'running',
+          ipv4: '1.2.3.4',
+          cpu: const Gauge(
+            used: 10,
+            allowed: 100,
+            percentUsed: 10,
+            level: UsageLevel.ok,
+            unit: '%',
+          ),
+          memory: null,
+          disk: null,
+          network: null,
+          processCount: null,
+          sampledAt: DateTime(2026, 1, 1),
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(_harness(monitors: monitors, vitals: vitals));
+    await tester.pumpAndSettle();
+
+    expect(find.text('MEM'), findsOneWidget);
+    expect(find.text('DISK'), findsOneWidget);
+    expect(find.text('NETWORK'), findsOneWidget);
+    // StatTile's number is a RichText, not a plain Text: find.text() only
+    // matches it with findRichText: true, otherwise this would only prove
+    // the unrelated Procs row (processCount: null) shows "—", not that the
+    // Mem/Disk/Network tiles' own fallback actually rendered anything.
+    // 3 unavailable tiles x (number + sub) + the Procs row = 7.
+    expect(find.text('—', findRichText: true), findsNWidgets(7));
+
+    await _disposeTree(tester);
+  });
 }
