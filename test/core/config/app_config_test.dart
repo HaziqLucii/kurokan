@@ -207,5 +207,40 @@ void main() {
         ),
       );
     });
+
+    test('throws FormatException when a list is not a list', () {
+      final json = _fullJson()..['hosts'] = 'not-a-list';
+      expect(
+        () => AppConfig.fromJson(json, schema: testConfigSchema),
+        throwsA(
+          isA<FormatException>().having(
+            (e) => e.message,
+            'message',
+            'hosts must be a list',
+          ),
+        ),
+      );
+    });
+
+    test('throws FormatException when a list entry is not an object', () {
+      final json = _fullJson()..['hosts'] = ['not-an-object'];
+      expect(
+        () => AppConfig.fromJson(json, schema: testConfigSchema),
+        throwsA(
+          isA<FormatException>().having(
+            (e) => e.message,
+            'message',
+            'hosts[0] must be an object',
+          ),
+        ),
+      );
+    });
+  });
+
+  group('ConfigError', () {
+    test('toString includes the path and reason', () {
+      const error = ConfigError('/x/config.json', 'not found');
+      expect(error.toString(), 'ConfigError(/x/config.json: not found)');
+    });
   });
 }
