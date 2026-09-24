@@ -8,6 +8,7 @@ import 'core/config/app_config.dart';
 import 'core/config/config_loader.dart';
 import 'core/config/config_provider.dart';
 import 'core/config/config_watcher.dart';
+import 'core/config/legacy_schema.dart';
 import 'core/platform/environment.dart';
 import 'core/platform/open_folder.dart';
 import 'features/setup/setup_screen.dart';
@@ -29,7 +30,11 @@ class _AppRootState extends State<AppRoot> {
   @override
   void initState() {
     super.initState();
-    _loader = ConfigLoader(env: environment, home: environment['HOME'] ?? '');
+    _loader = ConfigLoader(
+      env: environment,
+      home: environment['HOME'] ?? '',
+      schema: legacyConfigSchema,
+    );
     _loader.ensureDir();
     _tryLoad();
     _sub = ConfigWatcher(_loader.dir).events.listen((_) => _tryLoad());

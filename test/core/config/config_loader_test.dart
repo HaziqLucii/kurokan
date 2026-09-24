@@ -5,6 +5,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:kurokan/core/config/app_config.dart';
 import 'package:kurokan/core/config/config_loader.dart';
 
+import '../../helpers/test_config.dart';
+
 void main() {
   late Directory tempDir;
 
@@ -16,31 +18,53 @@ void main() {
     tempDir.deleteSync(recursive: true);
   });
 
-  test('KUROKAN_CONFIG overrides the default path and loads a valid file', () {
+  test(
+    'KUROKAN_CONFIG overrides the default path and loads a v1 file, migrated',
+    () {
+      final file = File('${tempDir.path}/config.json');
+      file.writeAsStringSync(
+        jsonEncode({
+          'webdock': {'slug': 'webdock-prod-01', 'apiToken': 'wd_secret'},
+          'kuma': {'url': 'https://status.example.tld', 'apiKey': 'uk1_secret'},
+        }),
+      );
+
+      final loader = ConfigLoader(
+        env: {'KUROKAN_CONFIG': file.path},
+        home: '/unused',
+        schema: testConfigSchema,
+      );
+      final config = loader.load();
+
+      expect(loader.filePath, file.path);
+      expect(config.firstHost?.settings['slug'], 'webdock-prod-01');
+      expect(config.firstUptime?.settings['apiKey'], 'uk1_secret');
+      expect(config.pollInterval, const Duration(seconds: 30));
+    },
+  );
+
+  test('loads a v2 file with hosts/uptime lists directly, no migration', () {
     final file = File('${tempDir.path}/config.json');
-    file.writeAsStringSync(
-      jsonEncode({
-        'webdock': {'slug': 'webdock-prod-01', 'apiToken': 'wd_secret'},
-        'kuma': {'url': 'https://status.example.tld', 'apiKey': 'uk1_secret'},
-      }),
-    );
+    file.writeAsStringSync(jsonEncode(testConfigJson(webdockSlug: 'v2-host')));
 
     final loader = ConfigLoader(
       env: {'KUROKAN_CONFIG': file.path},
       home: '/unused',
+      schema: testConfigSchema,
     );
     final config = loader.load();
 
-    expect(loader.filePath, file.path);
-    expect(config.webdock.slug, 'webdock-prod-01');
-    expect(config.kuma.apiKey, 'uk1_secret');
-    expect(config.pollInterval, const Duration(seconds: 30));
+    expect(config.firstHost?.settings['slug'], 'v2-host');
   });
 
   test(
     'falls back to ~/.config/kurokan/config.json when no override is set',
     () {
-      final loader = ConfigLoader(env: const {}, home: '/home/haziq');
+      final loader = ConfigLoader(
+        env: const {},
+        home: '/home/haziq',
+        schema: testConfigSchema,
+      );
       expect(loader.filePath, '/home/haziq/.config/kurokan/config.json');
       expect(loader.dir, '/home/haziq/.config/kurokan');
     },
@@ -50,6 +74,7 @@ void main() {
     final loader = ConfigLoader(
       env: {'KUROKAN_CONFIG': 'config.json'},
       home: '/unused',
+      schema: testConfigSchema,
     );
     expect(loader.dir, '.');
   });
@@ -59,6 +84,7 @@ void main() {
     final loader = ConfigLoader(
       env: {'KUROKAN_CONFIG': missingPath},
       home: '/unused',
+      schema: testConfigSchema,
     );
 
     expect(
@@ -81,6 +107,7 @@ void main() {
       final loader = ConfigLoader(
         env: {'KUROKAN_CONFIG': file.path},
         home: '/unused',
+        schema: testConfigSchema,
       );
 
       expect(
@@ -100,6 +127,7 @@ void main() {
     final loader = ConfigLoader(
       env: {'KUROKAN_CONFIG': override},
       home: '/unused',
+      schema: testConfigSchema,
     );
 
     loader.ensureDir();
@@ -114,6 +142,7 @@ void main() {
     final loader = ConfigLoader(
       env: {'KUROKAN_CONFIG': file.path},
       home: '/unused',
+      schema: testConfigSchema,
     );
 
     expect(
@@ -142,6 +171,7 @@ void main() {
       final loader = ConfigLoader(
         env: {'KUROKAN_CONFIG': file.path},
         home: '/unused',
+        schema: testConfigSchema,
       );
 
       expect(

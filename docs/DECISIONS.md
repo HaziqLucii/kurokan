@@ -99,7 +99,7 @@ handling) was skipped. `webdock_source.dart` and
 directly, which the guard explicitly allows. This is fine for a `flutter
 build web` JS (dart2js) target, since dart2js tolerates a `dart:io` import
 and only throws at actual use. It is NOT fine for a `--wasm` target
-(dart2wasm has no `dart:io` at all) — the Phase 4 plan already avoids
+(dart2wasm has no `dart:io` at all): the Phase 4 plan already avoids
 `--wasm` for unrelated reasons (CanvasKit, no COOP/COEP on GitHub Pages), so
 this isn't urgent, but if a wasm build is ever considered, build
 `platform_errors.dart` and route these two sources through it first.
@@ -120,3 +120,67 @@ map by the exact resolved file path. If a future demo/web config uses a
 writes to a different filename in that same directory. Not reachable today
 (memory store isn't wired into the real app yet); revisit when Phase 1.3
 wires up demo mode.
+
+## 2026-09-24 — Config schema v2 + v1 migration (Phase 1.1)
+
+`AppConfig`'s shape changed from two hardcoded sections (`webdock`, `kuma`)
+to generic `SourceEntry{kind, id, provider, settings: Map<String,String>}`
+lists (`hosts`, `uptime`, `containers`), validated against a `ConfigSchema`
+interface (`lib/core/config/config_schema.dart`) passed into
+`AppConfig.fromJson(json, {required schema})`. A v1 file (no `version` key,
+has `webdock`+`kuma`) is migrated to v2 in memory only
+(`lib/core/config/config_migration.dart`); never written back to disk by
+the loader itself, since the config watcher would otherwise loop on its
+own rewrite. The next Settings save persists v2 for real.
+
+New validation rules, deliberately looser than v1: ids must be unique
+across hosts+uptime+containers combined, and only "at least one source
+overall" is required (previously both a webdock host AND a kuma uptime
+source were mandatory). A config with only hosts, or only uptime, or only
+containers, is now valid. One side effect: a hand-edited v1-shaped file
+that drops its entire `kuma` section no longer fails as `isV1Config`
+(needs both keys), so it skips migration and parses as a hosts-only v2
+config instead of erroring `kuma section is required`. Not a corruption
+risk, just a weaker error message for an edge case nobody hits via the
+current settings form.
+
+`lib/core/config/legacy_schema.dart` is a temporary `ConfigSchema`
+hardcoding the two providers Kurokan supports today (webdock, kuma).
+Phase 1.2's `ProviderRegistry` implements `ConfigSchema` for real (with a
+`ProviderSpec` per provider) and replaces this file entirely.
+
+`AppConfig` gained `firstHost`/`firstUptime` getters (first entry in
+`hosts`/`uptime`, or null) as a compatibility shim so the current
+single-source settings form and polling providers keep compiling without
+being rewritten for N sources yet; deleted in Phase 3.1.
+`vitals_provider.dart`/`monitors_provider.dart` use `config.firstHost!`/
+`config.firstUptime!` (non-null assertions): the looser "at least one
+source" rule above means a config with zero hosts (uptime-only) now loads
+successfully but crashes these two providers with a null-check error
+instead of a clean error state, since they still assume exactly one host
+and one uptime source exist. This is real but consciously scoped out:
+Phase 1.4 ("N-source polling") is what actually removes the
+single-source assumption from these files; fixing it properly now would
+mean building N-source polling early, out of order.
+
+`ConfigSchema.providerIds(SourceKind)` lists every provider id a schema
+recognizes for a given kind, used only so an "unknown provider" error can
+name what's actually configured (`'hosts[0] has unknown provider "x"
+(known: webdock)'`), per the plan's explicit requirement. Both
+`legacy_schema.dart` and the test-side `testConfigSchema` implement it.
+
+`SourceEntry.fromJson` coerces every field value to a `String` via
+`.toString()` (so `"slug": 123` in a hand-edited file becomes `"123"`, not
+a validation error) and keeps only the keys its schema's `FieldSpec` list
+recognizes: any extra key a user adds to an entry by hand disappears the
+next time Settings saves. Matches v1's existing looseness (it never
+type-checked field values either), and is out of scope to tighten before
+Phase 1.2 gives providers a real `FieldKind`-driven parser.
+
+Found and fixed during review: the settings form's save path originally
+constructed a brand-new `AppConfig` from only the two fields it edits,
+silently dropping any second host/uptime entry, all containers, and the
+entire `history`/`notifications`/`layout` sections back to their defaults
+on every save. Fixed to carry everything the form doesn't edit through
+from the loaded config (`lib/features/settings/settings_form.dart`);
+covered by a regression test in `settings_form_test.dart`.

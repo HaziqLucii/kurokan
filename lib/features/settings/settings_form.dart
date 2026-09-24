@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/config/app_config.dart';
+import '../../core/config/config_schema.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/theme/typography.dart';
 import '../../shared/widgets/dossier_button.dart';
@@ -31,9 +32,13 @@ class _SettingsFormState extends State<SettingsForm> {
   void initState() {
     super.initState();
     final initial = widget.initial;
-    _slugController = TextEditingController(text: initial?.webdock.slug ?? '');
+    _slugController = TextEditingController(
+      text: initial?.firstHost?.settings['slug'] ?? '',
+    );
     _tokenController = TextEditingController();
-    _urlController = TextEditingController(text: initial?.kuma.url ?? '');
+    _urlController = TextEditingController(
+      text: initial?.firstUptime?.settings['url'] ?? '',
+    );
     _apiKeyController = TextEditingController();
     _pollController = TextEditingController(
       text:
@@ -77,10 +82,10 @@ class _SettingsFormState extends State<SettingsForm> {
     final typedToken = _tokenController.text.trim();
     final typedApiKey = _apiKeyController.text.trim();
     final token = typedToken.isEmpty
-        ? widget.initial?.webdock.apiToken
+        ? widget.initial?.firstHost?.settings['apiToken']
         : typedToken;
     final apiKey = typedApiKey.isEmpty
-        ? widget.initial?.kuma.apiKey
+        ? widget.initial?.firstUptime?.settings['apiKey']
         : typedApiKey;
 
     if (token == null || token.isEmpty) {
@@ -92,12 +97,35 @@ class _SettingsFormState extends State<SettingsForm> {
       return;
     }
 
+    final initial = widget.initial;
+    final editedHost = SourceEntry(
+      kind: SourceKind.host,
+      id: initial?.firstHost?.id ?? 'webdock',
+      provider: initial?.firstHost?.provider ?? 'webdock',
+      settings: {'slug': slug, 'apiToken': token},
+    );
+    final editedUptime = SourceEntry(
+      kind: SourceKind.uptime,
+      id: initial?.firstUptime?.id ?? 'kuma',
+      provider: initial?.firstUptime?.provider ?? 'kuma',
+      settings: {'url': url, 'apiKey': apiKey},
+    );
+
+    // This form only edits the first host and first uptime entry (a Phase
+    // 1.1 compatibility shim; Phase 3.1 generalises the form to N entries).
+    // Everything else on the loaded config must be preserved verbatim, or
+    // saving silently drops any second host/uptime entry, containers, and
+    // the history/notifications/layout sections.
     final saveError = widget.onSave(
       AppConfig(
-        webdock: WebdockConfig(slug: slug, apiToken: token),
-        kuma: KumaConfig(url: url, apiKey: apiKey),
+        hosts: [editedHost, ...?initial?.hosts.skip(1)],
+        uptime: [editedUptime, ...?initial?.uptime.skip(1)],
+        containers: initial?.containers ?? const [],
         pollInterval: Duration(seconds: poll),
         theme: _theme,
+        history: initial?.history ?? const HistoryConfig(),
+        notifications: initial?.notifications ?? const NotificationsConfig(),
+        layout: initial?.layout ?? const LayoutConfig(),
       ),
     );
     setState(() => _error = saveError);

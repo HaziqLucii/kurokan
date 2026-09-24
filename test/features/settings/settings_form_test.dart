@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kurokan/core/config/app_config.dart';
+import 'package:kurokan/core/config/config_schema.dart';
 import 'package:kurokan/core/theme/theme.dart';
 import 'package:kurokan/features/settings/settings_form.dart';
+
+import '../../helpers/test_config.dart';
 
 Widget _harness({
   required AppConfig? initial,
@@ -93,10 +96,10 @@ void main() {
       await tester.pump();
 
       expect(saved, isNotNull);
-      expect(saved!.webdock.slug, 'my-slug');
-      expect(saved!.webdock.apiToken, 'wd_token');
-      expect(saved!.kuma.url, 'https://kuma.example.tld');
-      expect(saved!.kuma.apiKey, 'uk1_key');
+      expect(saved!.firstHost?.settings['slug'], 'my-slug');
+      expect(saved!.firstHost?.settings['apiToken'], 'wd_token');
+      expect(saved!.firstUptime?.settings['url'], 'https://kuma.example.tld');
+      expect(saved!.firstUptime?.settings['apiKey'], 'uk1_key');
       expect(saved!.pollInterval, const Duration(seconds: 60));
     },
   );
@@ -129,10 +132,11 @@ void main() {
   testWidgets('edit mode: blank secret fields keep the existing secrets', (
     tester,
   ) async {
-    const initial = AppConfig(
-      webdock: WebdockConfig(slug: 'old-slug', apiToken: 'old-token'),
-      kuma: KumaConfig(url: 'https://old.kuma.tld', apiKey: 'old-key'),
-      pollInterval: Duration(seconds: 30),
+    final initial = testConfig(
+      webdockSlug: 'old-slug',
+      webdockToken: 'old-token',
+      kumaUrl: 'https://old.kuma.tld',
+      kumaApiKey: 'old-key',
     );
     AppConfig? saved;
     await tester.pumpWidget(
@@ -152,15 +156,17 @@ void main() {
     await tester.pump();
 
     expect(saved, isNotNull);
-    expect(saved!.webdock.slug, 'new-slug');
-    expect(saved!.webdock.apiToken, 'old-token');
-    expect(saved!.kuma.apiKey, 'old-key');
+    expect(saved!.firstHost?.settings['slug'], 'new-slug');
+    expect(saved!.firstHost?.settings['apiToken'], 'old-token');
+    expect(saved!.firstUptime?.settings['apiKey'], 'old-key');
   });
 
   testWidgets('edit mode: clearing the slug still blocks save', (tester) async {
-    const initial = AppConfig(
-      webdock: WebdockConfig(slug: 'old-slug', apiToken: 'old-token'),
-      kuma: KumaConfig(url: 'https://old.kuma.tld', apiKey: 'old-key'),
+    final initial = testConfig(
+      webdockSlug: 'old-slug',
+      webdockToken: 'old-token',
+      kumaUrl: 'https://old.kuma.tld',
+      kumaApiKey: 'old-key',
     );
     AppConfig? saved;
     await tester.pumpWidget(
@@ -185,9 +191,11 @@ void main() {
   testWidgets('edit mode: typing a new secret overrides the existing one', (
     tester,
   ) async {
-    const initial = AppConfig(
-      webdock: WebdockConfig(slug: 'old-slug', apiToken: 'old-token'),
-      kuma: KumaConfig(url: 'https://old.kuma.tld', apiKey: 'old-key'),
+    final initial = testConfig(
+      webdockSlug: 'old-slug',
+      webdockToken: 'old-token',
+      kumaUrl: 'https://old.kuma.tld',
+      kumaApiKey: 'old-key',
     );
     AppConfig? saved;
     await tester.pumpWidget(
@@ -205,6 +213,74 @@ void main() {
     await tester.tap(find.text('SAVE'));
     await tester.pump();
 
-    expect(saved!.webdock.apiToken, 'brand-new-token');
+    expect(saved!.firstHost?.settings['apiToken'], 'brand-new-token');
+  });
+
+  testWidgets('edit mode: save preserves everything the form does not edit', (
+    tester,
+  ) async {
+    final initial = AppConfig(
+      hosts: [
+        const SourceEntry(
+          kind: SourceKind.host,
+          id: 'my-vps',
+          provider: 'webdock',
+          settings: {'slug': 'old-slug', 'apiToken': 'old-token'},
+        ),
+        const SourceEntry(
+          kind: SourceKind.host,
+          id: 'second-host',
+          provider: 'webdock',
+          settings: {'slug': 'second-slug', 'apiToken': 'second-token'},
+        ),
+      ],
+      uptime: [
+        const SourceEntry(
+          kind: SourceKind.uptime,
+          id: 'my-kuma',
+          provider: 'kuma',
+          settings: {'url': 'https://old.kuma.tld', 'apiKey': 'old-key'},
+        ),
+      ],
+      containers: const [
+        SourceEntry(
+          kind: SourceKind.containers,
+          id: 'docker',
+          provider: 'docker',
+          settings: {'endpoint': 'unix:///var/run/docker.sock'},
+        ),
+      ],
+      history: const HistoryConfig(retention: Duration.zero),
+      notifications: const NotificationsConfig(enabled: true),
+      layout: const LayoutConfig(order: ['uptime:my-kuma'], incidents: false),
+    );
+    AppConfig? saved;
+    await tester.pumpWidget(
+      _harness(
+        initial: initial,
+        onSave: (c) {
+          saved = c;
+          return null;
+        },
+      ),
+    );
+
+    await tester.enterText(_fieldAt(0), 'new-slug');
+    await tester.tap(find.text('SAVE'));
+    await tester.pump();
+
+    expect(saved, isNotNull);
+    // The edited entry keeps its original id/provider.
+    expect(saved!.hosts.first.id, 'my-vps');
+    expect(saved!.hosts.first.settings['slug'], 'new-slug');
+    // Everything else the form doesn't touch survives verbatim.
+    expect(saved!.hosts.length, 2);
+    expect(saved!.hosts[1].id, 'second-host');
+    expect(saved!.containers.length, 1);
+    expect(saved!.containers.first.id, 'docker');
+    expect(saved!.history.retention, Duration.zero);
+    expect(saved!.notifications.enabled, isTrue);
+    expect(saved!.layout.order, ['uptime:my-kuma']);
+    expect(saved!.layout.incidents, isFalse);
   });
 }

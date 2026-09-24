@@ -2,13 +2,16 @@ import 'dart:convert';
 
 import '../platform/config_store.dart';
 import 'app_config.dart';
+import 'config_migration.dart';
+import 'config_schema.dart';
 
 class ConfigLoader {
   final Map<String, String> env;
   final String home;
+  final ConfigSchema schema;
   late final ConfigStore _store = createConfigStore(env: env, home: home);
 
-  ConfigLoader({required this.env, required this.home});
+  ConfigLoader({required this.env, required this.home, required this.schema});
 
   String get filePath => _store.path;
 
@@ -42,8 +45,10 @@ class ConfigLoader {
       throw ConfigError(filePath, 'root must be a JSON object');
     }
 
+    final normalized = isV1Config(decoded) ? migrateV1ToV2(decoded) : decoded;
+
     try {
-      return AppConfig.fromJson(decoded);
+      return AppConfig.fromJson(normalized, schema: schema);
     } on FormatException catch (e) {
       throw ConfigError(filePath, e.message);
     }

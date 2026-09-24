@@ -58,7 +58,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final config = ref.watch(appConfigProvider);
     final t = context.tokens;
     final marginMeta =
-        '${config.webdock.slug} · POLL ${config.pollInterval.inSeconds}S · V$appVersion';
+        '${config.firstHost?.settings['slug'] ?? '?'} · POLL ${config.pollInterval.inSeconds}S · V$appVersion';
 
     final monitorsAsync = ref.watch(monitorsProvider);
     final vitalsAsync = ref.watch(vitalsProvider);

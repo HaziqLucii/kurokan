@@ -1,13 +1,26 @@
 {
   "$schema": "https://raw.githubusercontent.com/HaziqLucii/kurokan/main/docs/config.schema.json",
-  "webdock": {
-    "slug": "webdock-prod-01",
-    "apiToken": "your-webdock-api-token"
-  },
-  "kuma": {
-    "url": "https://status.example.tld",
-    "apiKey": "uk1_your-uptime-kuma-api-key"
-  },
+  "version": 2,
   "pollIntervalSec": 30,
-  "theme": "system"
+  "theme": "system",
+  "hosts": [
+    {
+      "id": "webdock",
+      "provider": "webdock",
+      "slug": "webdock-prod-01",
+      "apiToken": "your-webdock-api-token"
+    }
+  ],
+  "uptime": [
+    {
+      "id": "kuma",
+      "provider": "kuma",
+      "url": "https://status.example.tld",
+      "apiKey": "uk1_your-uptime-kuma-api-key"
+    }
+  ],
+  "containers": [],
+  "history": { "retentionHours": 24 },
+  "notifications": { "enabled": false },
+  "layout": { "order": [], "incidents": true }
 }
