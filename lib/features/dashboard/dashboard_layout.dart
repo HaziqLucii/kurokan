@@ -1,7 +1,10 @@
 import 'panel_registry.dart';
 
-/// Below this width the two side-by-side panel columns no longer have
-/// room to breathe; everything stacks into one scrollable column instead.
+/// Compared against the whole window's width (WindowFrame's
+/// `contentBuilder` width, before its ~100px fixed horizontal padding),
+/// not the panel area's own width. Below it, the two side-by-side panel
+/// columns no longer have room to breathe; everything stacks into one
+/// scrollable column instead.
 const dashboardLayoutBreakpoint = 900.0;
 
 sealed class LayoutPlan {
