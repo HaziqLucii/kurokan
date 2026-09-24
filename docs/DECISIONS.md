@@ -184,3 +184,71 @@ entire `history`/`notifications`/`layout` sections back to their defaults
 on every save. Fixed to carry everything the form doesn't edit through
 from the loaded config (`lib/features/settings/settings_form.dart`);
 covered by a regression test in `settings_form_test.dart`.
+
+## 2026-09-24 — Provider registry (Phase 1.2)
+
+`lib/core/config/legacy_schema.dart` is gone. `ProviderRegistry`
+(`lib/core/providers/provider_registry.dart`) now `implements ConfigSchema`
+for real, backed by a `ProviderSpec<S>` per provider
+(`lib/core/providers/provider_spec.dart`: `id`, `tag`, `kind`, `fields`,
+`create(SourceEntry, SourceDeps) -> S`, `label(SourceEntry) -> String`).
+`webdockSpec`/`kumaSpec` live next to their existing source files
+(`lib/features/vps/data/webdock_spec.dart`,
+`lib/features/uptime/data/kuma_spec.dart`); `default_registry.dart` is the
+one shared file that lists every provider Kurokan ships with.
+`vitals_provider.dart`/`monitors_provider.dart` now build the real source
+via `registry.hostSpec(...)!.create(entry, SourceDeps(...))` instead of
+constructing `WebdockSource`/`UptimeKumaMetricsSource` directly; the `!`
+there is safe on the app's actual load path (not the same risk as
+`firstHost!`/`firstUptime!`), because `AppConfig.fromJson` already
+validates `entry.provider` against `defaultRegistry` before the config
+ever reaches this provider, and `providerRegistryProvider` is never
+overridden away from `defaultRegistry`. The type system doesn't enforce
+this pairing though: a test (or a future code path) that builds an
+`AppConfig` directly, bypassing `fromJson`, with an unrecognized provider
+would still hit a bare null-check crash here instead of a readable error.
+
+Deviation from the plan's literal sketch: `defaultRegistry`'s pseudocode
+in the plan already lists `demoHostSpec`/`demoUptimeSpec` alongside the
+real providers, but those don't exist until Phase 1.3. This increment
+ships `defaultRegistry` with only `webdockSpec`/`kumaSpec`; Phase 1.3 adds
+the demo entries when the demo providers themselves land.
+
+`ProviderRegistry.containers` is typed `List<ProviderSpec<Object?>>`
+(always empty right now) since no `ContainerSource` domain interface
+exists yet; Phase 2's Docker provider should introduce one and retype this
+field properly instead of leaving it as `Object?`.
+
+Table-driven guard per the plan ("every spec's `fields` keys equal exactly
+what its `create` reads"), in `test/core/providers/provider_registry_test.dart`:
+loops over every spec actually registered in `defaultRegistry` (so Phase
+1.3's demo specs and Phase 2's real providers are covered automatically,
+no new test needed per provider), builds a settings map from `spec.fields`
+alone rather than a hand-typed literal, and asserts `spec.create(...)`
+doesn't throw. Building settings from `fields` (not a literal someone
+could keep in sync by hand and forget to) is what actually catches the
+`settings['x']!` bug class: if `create()` reads a key with no matching
+`FieldSpec`, that key is absent from the generated settings and the `!`
+throws inside the test. A second test per spec parses the same generated
+settings through `SourceEntry.fromJson(..., schema: defaultRegistry)`
+first, proving the `FieldSpec` key names actually match what a real
+`config.json` would use.
+
+Found and fixed during review, twice. First: the settings form's save
+path originally constructed a brand-new `AppConfig` from only the two
+fields it edits, silently dropping any second host/uptime entry, all
+containers, and the entire `history`/`notifications`/`layout` sections
+back to their defaults on every save. Fixed to carry everything the form
+doesn't edit through from the loaded config
+(`lib/features/settings/settings_form.dart`); covered by a regression test
+in `settings_form_test.dart`. Second: the table-driven guard above was
+initially written as one hand-typed test per spec, comparing `fields` to
+a literal key set and constructing from a literal settings map that
+happened to already agree with both `fields` and `create()`. That proved
+nothing beyond "the author remembered the same three facts twice" and
+wouldn't have caught the exact bug it was meant to guard against (a
+required field added to `create()` without a matching `FieldSpec` passes
+`AppConfig.fromJson` silently, since `SourceEntry.fromJson` only copies
+keys `fields` lists, then crashes at runtime in `vitals_provider.dart`/
+`monitors_provider.dart`). Rewritten to generate settings from `fields`
+itself, as described above.
