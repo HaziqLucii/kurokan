@@ -252,3 +252,108 @@ required field added to `create()` without a matching `FieldSpec` passes
 keys `fields` lists, then crashes at runtime in `vitals_provider.dart`/
 `monitors_provider.dart`). Rewritten to generate settings from `fields`
 itself, as described above.
+
+## 2026-09-24 — Demo providers, demo mode, golden harness (Phase 1.3)
+
+`demo` is now a real, registered provider (`lib/features/demo/demo_specs.dart`:
+`demoHostSpec`, `demoUptimeSpec`, both with `fields: []`, no credentials
+needed), added to `defaultRegistry` alongside `webdockSpec`/`kumaSpec`. This
+completes what Phase 1.2 deliberately deferred (its own decision entry
+above). `DemoHostSource`/`DemoMonitorSource`
+(`lib/features/demo/demo_host_source.dart`, `demo_monitor_source.dart`) are
+pure Dart (no `dart:io`, so they'll run in the Phase 4 web build) and
+deterministic: every value is `base + amplitude * sin(tick / period) +
+seeded noise`, where `tick` is elapsed seconds since a fixed anchor date
+computed from an injected `Clock`, never wall-clock `DateTime.now()`
+directly. `DemoScenario.incident` pins the CPU gauge to 97% (crit) and the
+first monitor to DOWN **unconditionally** (not only "at tick 0" as the
+plan's phrasing suggested) so a screenshot at any fixed clock value
+reliably shows the same bad state; `DemoScenario.calm` (production demo
+mode's default) never reaches crit or DOWN.
+
+The setup screen's "Try with demo data" button
+(`lib/features/setup/setup_screen.dart`) just writes `demoConfig()`
+through the normal `ConfigWriter`, the same as any real Settings save. It
+loads back through the exact same registry-driven path as a real config;
+"demo" isn't a special code path anywhere in the loading/polling
+pipeline, only a provider id. Separately, `--dart-define=KUROKAN_DEMO=true`
+(`PlatformInfo.isDemo`, already built in Phase 1.0, not duplicated here as
+the plan's sketched `lib/core/config/demo_mode.dart`/`kDemoMode`) makes
+`AppRoot` skip disk I/O entirely and use `demoConfig()` in memory. Opening
+Settings while in this mode still writes a real file (nothing currently
+guards against that), but nothing reads it back, since the watcher and
+`_tryLoad()` never start in that branch.
+
+`backfill(ticks, step)` (seeding history from a demo source) is not
+implemented: the plan itself says this feeds Phase 3.2's history store,
+which doesn't exist yet. Building it now would be an abstraction with no
+consumer.
+
+Found and fixed during review: the "Try with demo data" button originally
+showed whenever `SetupScreen` renders at all, including the
+`isInvalid` (invalid, not just missing, config) state. A file with a typo
+can still hold real Webdock/Kuma credentials; clicking the button there
+silently overwrote it with no confirmation. Fixed by only showing the
+button when `error == null || error!.notFound`
+(`lib/features/setup/setup_screen.dart`), covered by two tests. Writing
+the invalid-config test surfaced a second, unrelated pre-existing bug in
+the same file: the footer row's "INVALID CONFIG · WATCHING FOR FILE" text
+overflowed its `Row` by a few pixels (never caught before since nothing
+had ever rendered `SetupScreen` in that specific error state); fixed by
+wrapping it in `Expanded` with `TextOverflow.ellipsis`.
+
+Golden images must be generated on Linux, not macOS: `refuter` caught that
+the ones first committed here were generated locally on macOS arm64, and
+at the comparator's 0.1% tolerance a text-heavy 1100x720 frame will not
+match Linux's different text rasterization (the whole reason the plan
+puts goldens on Linux-only in the first place). Regenerated via
+`docker run --platform linux/amd64 ghcr.io/cirruslabs/flutter:<version>
+flutter test -t golden --update-goldens` before committing.
+
+Known cosmetic gap, not fixed here: the vitals panel's tag still reads
+"WEBDOCK" even when the active source is `demo` (see the golden
+screenshots). Panel tags become provider-driven (via
+`ProviderSpec.tag`, already added in Phase 1.2) only once Phase 1.4/1.5's
+panel registry replaces the current hardcoded panel wiring.
+
+**Golden harness.** `test/goldens/flutter_test_config.dart` (deliberately
+placed inside `test/goldens/`, not at the `test/` root) loads every
+pubspec font via `FontLoader` and installs a `TolerantGoldenComparator`
+(accepts up to 0.1% pixel diff) plus `debugDisableShadows = true`. Two
+non-obvious things that cost debugging time:
+
+- `FontManifest.json` percent-encodes special characters in asset paths
+  (`Fraunces[SOFT,WONK,opsz,wght].ttf` becomes `...%5BSOFT...%5D.ttf` in
+  the manifest), but `rootBundle.load()` needs the raw, decoded key.
+  Without `Uri.decodeFull(...)`, every font fails to load with "asset does
+  not exist."
+- **`flutter_test_config.dart` must not live at the `test/` root.** Flutter
+  applies it to every test file found at or below its location by walking
+  up the directory tree from each test file. Placed at `test/`, it
+  originally wrapped the *entire suite* in
+  `TestWidgetsFlutterBinding.ensureInitialized()`, which silently broke
+  `test/core/net/http_client_io_test.dart` (a real loopback `HttpServer`
+  test): Flutter's test binding blocks all real HTTP requests once
+  initialized ("all HTTP requests will return status code 400"). Scoping
+  the config file to `test/goldens/` fixes this; only golden tests pay for
+  font loading and the tolerant comparator.
+
+`lib/features/setup/setup_screen.dart` had zero test coverage before this
+phase; the new `test/features/setup/setup_screen_test.dart` covers only
+the new "Try with demo data" button. The pre-existing "Set up now"
+navigation and the invalid-config error-display branch remain untested,
+same call as everywhere else in this log: fix what the diff touches, not
+unrelated gaps in the same file.
+
+`test/goldens/dashboard_golden_test.dart` renders the dashboard at
+1100x720 @1x, dark and light, with a `Clock.fixed(...)` passed both
+directly to the demo sources and via `withClock(...)` around the pump
+(since `lib/core/polling/polled.dart`'s `Sample.fetchedAt` reads the
+*ambient* `clock.now()`, not an injected one, so the "last refreshed"
+timestamp needs the same fixed clock to stay deterministic). Tagged
+`@Tags(['golden'])`, declared in the new `dart_test.yaml`. Golden platform
+is Linux only (macOS text rasterization differs): the Makefile `test`
+target already excluded goldens since Phase 1.0 (`-x golden`, added ahead
+of this phase); `.github/workflows/ci.yml`'s `check` job now has a
+dedicated `flutter test -t golden` step so CI is the only place they
+actually run.

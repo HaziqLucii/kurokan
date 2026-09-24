@@ -31,6 +31,11 @@ jobs:
       - run: dart format --output=none --set-exit-if-changed .
       - run: flutter analyze --fatal-infos
       - run: flutter test --coverage -x golden
+      # Golden tests run on Linux only: macOS text rasterization differs
+      # enough to make them flake there, so local `make check` and this
+      # job's coverage run above both exclude them (-x golden); this step
+      # is the only place they actually run.
+      - run: flutter test -t golden
       - uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
         with:
           files: coverage/lcov.info

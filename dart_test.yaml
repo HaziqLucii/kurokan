@@ -1,0 +1,6 @@
+tags:
+  golden:
+    description: >-
+      Pixel golden tests. Linux-only: macOS text rasterization differs, so
+      `make check` and local dev exclude this tag (`-x golden`); CI's check
+      job (ubuntu) runs them explicitly.
