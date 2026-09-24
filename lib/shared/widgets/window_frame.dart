@@ -1,7 +1,6 @@
-import 'dart:io' show Platform;
-
 import 'package:flutter/material.dart';
 
+import '../../core/platform/platform_info.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/theme/typography.dart';
 import 'grain_overlay.dart';
@@ -25,7 +24,7 @@ class WindowFrame extends StatelessWidget {
       children: [
         Column(
           children: [
-            if (Platform.isMacOS)
+            if (PlatformInfo.isMacOS)
               _ChromeStrip(edge: t.edge, lineSoft: t.lineSoft),
             Expanded(
               child: LayoutBuilder(

@@ -95,6 +95,39 @@ void main() {
     },
   );
 
+  test('ensureDir creates the parent directory', () {
+    final override = '${tempDir.path}/nested/deeper/config.json';
+    final loader = ConfigLoader(
+      env: {'KUROKAN_CONFIG': override},
+      home: '/unused',
+    );
+
+    loader.ensureDir();
+
+    expect(Directory('${tempDir.path}/nested/deeper').existsSync(), isTrue);
+  });
+
+  test('throws ConfigError when the JSON root is not an object', () {
+    final file = File('${tempDir.path}/config.json');
+    file.writeAsStringSync(jsonEncode([1, 2, 3]));
+
+    final loader = ConfigLoader(
+      env: {'KUROKAN_CONFIG': file.path},
+      home: '/unused',
+    );
+
+    expect(
+      loader.load,
+      throwsA(
+        isA<ConfigError>().having(
+          (e) => e.reason,
+          'reason',
+          'root must be a JSON object',
+        ),
+      ),
+    );
+  });
+
   test(
     'throws ConfigError with the reason when a required field is missing',
     () {

@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,7 +8,8 @@ import 'core/config/app_config.dart';
 import 'core/config/config_loader.dart';
 import 'core/config/config_provider.dart';
 import 'core/config/config_watcher.dart';
-import 'features/setup/open_folder.dart';
+import 'core/platform/environment.dart';
+import 'core/platform/open_folder.dart';
 import 'features/setup/setup_screen.dart';
 
 class AppRoot extends StatefulWidget {
@@ -29,11 +29,8 @@ class _AppRootState extends State<AppRoot> {
   @override
   void initState() {
     super.initState();
-    _loader = ConfigLoader(
-      env: Platform.environment,
-      home: Platform.environment['HOME'] ?? '',
-    );
-    Directory(_loader.dir).createSync(recursive: true);
+    _loader = ConfigLoader(env: environment, home: environment['HOME'] ?? '');
+    _loader.ensureDir();
     _tryLoad();
     _sub = ConfigWatcher(_loader.dir).events.listen((_) => _tryLoad());
   }

@@ -1,35 +1,33 @@
 import 'dart:convert';
-import 'dart:io';
 
+import '../platform/config_store.dart';
 import 'app_config.dart';
 
 class ConfigLoader {
   final Map<String, String> env;
   final String home;
+  late final ConfigStore _store = createConfigStore(env: env, home: home);
 
-  const ConfigLoader({required this.env, required this.home});
+  ConfigLoader({required this.env, required this.home});
 
-  String get filePath {
-    final override = env['KUROKAN_CONFIG'];
-    if (override != null && override.isNotEmpty) return override;
-    return '$home/.config/kurokan/config.json';
-  }
+  String get filePath => _store.path;
 
-  String get dir {
-    final slash = filePath.lastIndexOf('/');
-    return slash == -1 ? '.' : filePath.substring(0, slash);
-  }
+  String get dir => _store.dir;
+
+  void ensureDir() => _store.ensureDir();
 
   AppConfig load() {
-    final file = File(filePath);
-    if (!file.existsSync()) {
+    if (!_store.exists()) {
       throw ConfigError(filePath, 'not found', notFound: true);
     }
 
     final String raw;
     try {
-      raw = file.readAsStringSync();
-    } on IOException catch (e) {
+      raw = _store.read();
+    } catch (e) {
+      // Not covered by a test: reaching this needs a file that exists()
+      // returns true for but read() still fails on (e.g. chmod 000), which
+      // is permission-flaky across dev machines and CI runners.
       throw ConfigError(filePath, 'unreadable: $e');
     }
 
