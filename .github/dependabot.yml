@@ -8,6 +8,12 @@ updates:
       pub-dependencies:
         patterns:
           - "*"
+    ignore:
+      # clock is pinned to an exact version by flutter_test in the Flutter
+      # SDK (currently 1.1.2 on the 3.44.7 pin in ci.yml); any bump here
+      # makes `flutter pub get` fail until a Flutter SDK release bundles a
+      # flutter_test that allows the newer version.
+      - dependency-name: "clock"
   - package-ecosystem: github-actions
     directory: /
     schedule:
