@@ -1,0 +1,39 @@
+name: Provider request
+description: Ask for a new infra source (monitoring, hosting, container runtime) to be supported.
+labels: [provider-request]
+body:
+  - type: input
+    id: provider
+    attributes:
+      label: Provider / product name
+    validations:
+      required: true
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What kind of source is it
+      options:
+        - Host / VM vitals (CPU, memory, disk)
+        - Uptime / monitor status
+        - Containers
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: api
+    attributes:
+      label: Link to the provider's API docs
+    validations:
+      required: true
+  - type: textarea
+    id: auth
+    attributes:
+      label: How does a user authenticate to it
+      description: API key, Basic auth, none, mTLS, etc.
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why this one
+      description: What do you run today that this would replace or complement?

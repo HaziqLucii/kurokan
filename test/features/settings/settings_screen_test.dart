@@ -25,9 +25,12 @@ Widget _harness(String configPath) {
       builder: (context) => Scaffold(
         body: Center(
           child: ElevatedButton(
-            onPressed: () => Navigator.of(context).push(MaterialPageRoute(
-              builder: (_) => SettingsScreen(initial: null, configPath: configPath),
-            )),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) =>
+                    SettingsScreen(initial: null, configPath: configPath),
+              ),
+            ),
             child: const Text('open settings'),
           ),
         ),
@@ -47,34 +50,42 @@ void main() {
     tempDir.deleteSync(recursive: true);
   });
 
-  testWidgets('filling the form writes the config file and pops back to the caller', (tester) async {
-    await _setWindowSize(tester);
-    final configPath = '${tempDir.path}/config.json';
+  testWidgets(
+    'filling the form writes the config file and pops back to the caller',
+    (tester) async {
+      await _setWindowSize(tester);
+      final configPath = '${tempDir.path}/config.json';
 
-    await tester.pumpWidget(_harness(configPath));
-    await tester.tap(find.text('open settings'));
-    await tester.pumpAndSettle();
+      await tester.pumpWidget(_harness(configPath));
+      await tester.tap(find.text('open settings'));
+      await tester.pumpAndSettle();
 
-    await tester.enterText(find.byType(TextField).at(0), 'my-slug');
-    await tester.enterText(find.byType(TextField).at(1), 'wd_token');
-    await tester.enterText(find.byType(TextField).at(2), 'https://kuma.example.tld');
-    await tester.enterText(find.byType(TextField).at(3), 'uk1_key');
-    await tester.enterText(find.byType(TextField).at(4), '60');
+      await tester.enterText(find.byType(TextField).at(0), 'my-slug');
+      await tester.enterText(find.byType(TextField).at(1), 'wd_token');
+      await tester.enterText(
+        find.byType(TextField).at(2),
+        'https://kuma.example.tld',
+      );
+      await tester.enterText(find.byType(TextField).at(3), 'uk1_key');
+      await tester.enterText(find.byType(TextField).at(4), '60');
 
-    await tester.tap(find.text('CREATE CONFIG'));
-    await tester.pumpAndSettle();
+      await tester.tap(find.text('CREATE CONFIG'));
+      await tester.pumpAndSettle();
 
-    expect(find.text('open settings'), findsOneWidget);
-    expect(find.byType(SettingsScreen), findsNothing);
+      expect(find.text('open settings'), findsOneWidget);
+      expect(find.byType(SettingsScreen), findsNothing);
 
-    final written = jsonDecode(File(configPath).readAsStringSync()) as Map<String, dynamic>;
-    final config = AppConfig.fromJson(written);
-    expect(config.webdock.slug, 'my-slug');
-    expect(config.webdock.apiToken, 'wd_token');
-    expect(config.kuma.url, 'https://kuma.example.tld');
-    expect(config.kuma.apiKey, 'uk1_key');
-    expect(config.pollInterval, const Duration(seconds: 60));
-  });
+      final written =
+          jsonDecode(File(configPath).readAsStringSync())
+              as Map<String, dynamic>;
+      final config = AppConfig.fromJson(written);
+      expect(config.webdock.slug, 'my-slug');
+      expect(config.webdock.apiToken, 'wd_token');
+      expect(config.kuma.url, 'https://kuma.example.tld');
+      expect(config.kuma.apiKey, 'uk1_key');
+      expect(config.pollInterval, const Duration(seconds: 60));
+    },
+  );
 
   testWidgets('the back button pops without writing a file', (tester) async {
     await _setWindowSize(tester);

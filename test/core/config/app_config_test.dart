@@ -2,11 +2,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:kurokan/core/config/app_config.dart';
 
 Map<String, dynamic> _fullJson() => {
-      'webdock': {'slug': 'webdock-prod-01', 'apiToken': 'wd_secret'},
-      'kuma': {'url': 'https://status.example.tld', 'apiKey': 'uk1_secret'},
-      'pollIntervalSec': 45,
-      'theme': 'dark',
-    };
+  'webdock': {'slug': 'webdock-prod-01', 'apiToken': 'wd_secret'},
+  'kuma': {'url': 'https://status.example.tld', 'apiKey': 'uk1_secret'},
+  'pollIntervalSec': 45,
+  'theme': 'dark',
+};
 
 void main() {
   group('AppConfig.fromJson', () {
