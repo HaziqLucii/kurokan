@@ -678,14 +678,27 @@ unwraps `.monitors` since `MonitorSource.fetch()` still returns
 Grouping now prefers `labels['monitor_id']` over the existing full-label-
 set composite key when a `monitor_id` is present (older Kuma, 1.23.x,
 never emits one; the composite-key fallback is what the "against the real
-captured fixture" test group already covered). Whichever series carries
-`monitor_status` is now authoritative for the monitor's displayed
-`name`/`type`: right after a rename, a stale ("orphan") series sharing
-the same `monitor_id` can still be scraped alongside the live one until
-Prometheus's cache catches up, and previously whichever series' line
-appeared first in the body won that race by accident (the accumulator's
-name/type were set once, at first creation, from whatever labels that
-first line happened to carry).
+captured fixture" test group already covered). The last `monitor_status`
+line seen for a given key now sets that monitor's displayed `name`/`type`,
+instead of the accumulator's name/type being fixed once at first creation
+from whatever line happened to appear first.
+
+Found and corrected during `refuter` review: this was first written up as
+"whichever series carries `monitor_status` is authoritative for identity"
+(picking the live series over a rename's stale orphan), but that framing
+doesn't hold up. A real orphan series still emits its own `monitor_status`
+line (it's not a series that's missing that metric, just a series that's
+stale) — so both the live and orphan series compete on this field exactly
+like every other field already does, and the actual mechanism is "the
+last line in the body wins," full stop, no different from how
+`monitor_response_time` already behaved. The corrected comment and test
+(`prometheus_text_parser_test.dart`, "when a rename leaves two
+monitor_status lines sharing the same id...") describe this honestly:
+whichever series Prometheus's exporter happens to list last in the body
+wins the name shown, which is *probably* the live one in practice (an
+actively-reporting monitor likely still gets a fresh line each scrape,
+while an orphan may drop off first), but nothing in the parser itself
+knows or guarantees that.
 
 `double.tryParse('NaN')` returns `double.nan` in Dart, not `null` — the
 existing `if (value == null) continue` guard let a literal `NaN` metric
@@ -699,6 +712,17 @@ Fixed with an explicit `|| value.isNaN` on the same guard.
 first real consumer of the `extra` map Phase 2.0 added. Nothing reads
 them yet (no UI change); Phase 3's history/sparkline work is the more
 likely place to actually surface them, not this phase.
+
+Found and fixed during `refuter` review: `hasUptime` was originally set
+inside the `monitor_uptime_ratio` switch case, which only runs after the
+NaN/null value guard — so a response where every uptime ratio happened to
+be `NaN` would report `hasUptime: false`, indistinguishable from "this
+Kuma version doesn't emit uptime ratios at all," which is exactly the
+distinction this flag exists to make. Fixed by setting `hasUptime = true`
+as soon as the metric name is recognized, before the value is parsed or
+validated at all; a dedicated test (`prometheus_text_parser_test.dart`,
+"hasUptime is true even when every monitor_uptime_ratio value is NaN")
+covers it.
 
 `monitor_response_time_seconds` needs no special-case skip: it was
 already ignored structurally (the metric-name `switch` only matches
@@ -718,6 +742,19 @@ from the real single-purpose `uptime_kuma_metrics.txt` capture. Live-
 verification against a real newer Kuma instance (the plan's own
 suggestion) wasn't done here: Haziq's own reachable instance is the
 1.23.17 one already captured, which predates all of these fields.
+
+Found and fixed during `refuter` review: two tests were weaker than their
+names claimed. The v2 fixture's own test only checked `hasIds`/`hasUptime`
+and that the monitor list was non-empty with non-empty ids — it never
+checked a single actual field value, so it would have passed even if the
+parser silently dropped every gauge. Rewritten to assert both monitors'
+full fields (name, type, state, response time, uptime, cert, `extra`)
+against hand-traced expected values. Separately, "a tag label does not
+affect grouping" put the *same* `tag_slug` value on both of a monitor's
+lines, so it would still have passed even if tags were part of the
+grouping key (as long as both lines had the same tag). Rewritten to put
+the tag on only one line, with a variant covering both the composite-key
+and `monitor_id`-keyed paths.
 
 Left uncovered, pre-existing, not touched by this diff:
 `uptime_kuma_metrics_source.dart`'s `HttpException` catch branch and

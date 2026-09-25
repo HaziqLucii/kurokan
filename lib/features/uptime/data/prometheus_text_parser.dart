@@ -83,14 +83,26 @@ class PrometheusMetricsParser {
         return _Accumulator(name: name, type: labels['monitor_type'] ?? '');
       });
 
-      // monitor_status is authoritative for identity: right after a rename,
-      // a stale ("orphan") series sharing the same id can briefly still be
-      // scraped alongside the live one until Prometheus's cache catches up.
-      // Whichever series carries monitor_status wins the display name/type.
+      // The last monitor_status line seen for a given key sets the
+      // monitor's displayed name/type, overwriting whatever an earlier
+      // line's labels stored. This matters when a rename leaves a stale
+      // ("orphan") series sharing the same monitor_id still being scraped
+      // alongside the live one: both typically still emit their own
+      // monitor_status line, so whichever the body lists last wins. This
+      // is a scrape-order heuristic, not a semantic "which one is live"
+      // guarantee — nothing in a Prometheus text body says which series
+      // is current.
       if (metric == 'monitor_status') {
         acc.name = name;
         acc.type = labels['monitor_type'] ?? acc.type;
       }
+
+      // hasUptime reflects whether the Kuma instance attempts to report
+      // uptime ratios at all, independent of whether any particular value
+      // parses; it must be set before the NaN/null guard below, or a
+      // response where every ratio happens to be NaN would wrongly read
+      // as "this Kuma version doesn't support uptime ratios".
+      if (metric == 'monitor_uptime_ratio') hasUptime = true;
 
       final value = double.tryParse(match.group(4)!);
       // double.tryParse('NaN') succeeds in Dart (returns double.nan), so
@@ -105,7 +117,6 @@ class PrometheusMetricsParser {
               ? null
               : Duration(milliseconds: value.round());
         case 'monitor_uptime_ratio':
-          hasUptime = true;
           final window = labels['window'];
           if (window == '1d') {
             acc.uptime24h = value;

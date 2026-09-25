@@ -191,17 +191,23 @@ monitor_response_time{monitor_id="7",monitor_name="X",monitor_type="http",monito
       expect(result.hasIds, isTrue);
     });
 
-    test('prefers the monitor_status series\' name/type when a renamed '
-        'monitor leaves a stale orphan series sharing the same id', () {
+    test('when a rename leaves two monitor_status lines sharing the same id, '
+        'the last one in the body wins the displayed name/type (a '
+        'scrape-order heuristic, not a semantic "which one is live" check: '
+        'a real orphan series still emits its own monitor_status line, so '
+        'both compete on the same field, same as any other metric)', () {
       const body = '''
-monitor_response_time{monitor_id="7",monitor_name="Old Name (stale)",monitor_type="http"} 200
+monitor_status{monitor_id="7",monitor_name="Old Name (stale)",monitor_type="http"} 1
+monitor_response_time{monitor_id="7",monitor_name="Old Name (stale)",monitor_type="http"} 900
 monitor_status{monitor_id="7",monitor_name="New Name",monitor_type="port"} 1
+monitor_response_time{monitor_id="7",monitor_name="New Name",monitor_type="port"} 5
 ''';
       final m = parser.parse(body).monitors.single;
       expect(m.name, 'New Name');
       expect(m.type, 'port');
-      // Data from the orphan series still merges into the same monitor.
-      expect(m.responseTime, const Duration(milliseconds: 200));
+      // Every field for a shared key follows the same last-line-wins
+      // rule, not something special to monitor_status.
+      expect(m.responseTime, const Duration(milliseconds: 5));
     });
 
     test('a NaN value (double.tryParse("NaN") succeeds in Dart) is ignored, '
@@ -216,12 +222,23 @@ monitor_uptime_ratio{monitor_name="X",monitor_type="http",window="1d"} NaN
       expect(m.uptime24h, isNull);
     });
 
-    test('a tag label on a monitor line does not affect grouping', () {
-      const body = '''
+    test('a tag label present on only one of two lines for the same monitor '
+        'does not split it into two rows, with or without monitor_id', () {
+      const withoutId = '''
 monitor_status{monitor_name="X",monitor_type="http",tag_slug="production"} 1
-monitor_response_time{monitor_name="X",monitor_type="http",tag_slug="production"} 10
+monitor_response_time{monitor_name="X",monitor_type="http"} 10
 ''';
-      expect(parser.parse(body).monitors, hasLength(1));
+      final a = parser.parse(withoutId).monitors;
+      expect(a, hasLength(1));
+      expect(a.single.responseTime, const Duration(milliseconds: 10));
+
+      const withId = '''
+monitor_status{monitor_id="9",monitor_name="X",monitor_type="http",tag_slug="production"} 1
+monitor_response_time{monitor_id="9",monitor_name="X",monitor_type="http"} 10
+''';
+      final b = parser.parse(withId).monitors;
+      expect(b, hasLength(1));
+      expect(b.single.responseTime, const Duration(milliseconds: 10));
     });
 
     test(
@@ -244,19 +261,49 @@ monitor_status{monitor_name="X",monitor_type="http"} 1
       expect(parser.parse(body).hasUptime, isFalse);
     });
 
-    test('hasIds/hasUptime against the v2 fixture (monitor_id, three windows, '
-        'a tag label, a NaN)', () {
-      final body = File(
-        'test/fixtures/uptime_kuma_metrics_v2.txt',
-      ).readAsStringSync();
+    test('hasUptime is true even when every monitor_uptime_ratio value is NaN: '
+        'the instance is trying to report uptime, a garbage value is a '
+        'different problem than "this Kuma version has no uptime data"', () {
+      const body = '''
+monitor_status{monitor_name="X",monitor_type="http"} 1
+monitor_uptime_ratio{monitor_name="X",monitor_type="http",window="1d"} NaN
+''';
       final result = parser.parse(body);
-
-      expect(result.hasIds, isTrue);
       expect(result.hasUptime, isTrue);
-      expect(result.monitors, isNotEmpty);
-      for (final m in result.monitors) {
-        expect(m.id, isNotEmpty);
-      }
+      expect(result.monitors.single.uptime24h, isNull);
     });
+
+    test(
+      'against the v2 fixture (monitor_id, three windows, a tag label, a NaN)',
+      () {
+        final body = File(
+          'test/fixtures/uptime_kuma_metrics_v2.txt',
+        ).readAsStringSync();
+        final result = parser.parse(body);
+
+        expect(result.hasIds, isTrue);
+        expect(result.hasUptime, isTrue);
+        expect(result.monitors, hasLength(2));
+
+        final api = result.monitors.firstWhere((m) => m.id == '1');
+        expect(api.name, 'API');
+        expect(api.type, 'http');
+        expect(api.state, MonitorState.up);
+        expect(api.responseTime, const Duration(milliseconds: 87));
+        expect(api.uptime24h, 0.9999);
+        expect(api.extra, {'uptime_30d': '0.9995', 'uptime_365d': '0.999'});
+        expect(api.certDaysRemaining, 58);
+        expect(api.certValid, isTrue);
+
+        final postgres = result.monitors.firstWhere((m) => m.id == '2');
+        expect(postgres.name, 'Postgres');
+        expect(postgres.type, 'port');
+        expect(postgres.state, MonitorState.up);
+        // The NaN response time is dropped, not stored as NaN.
+        expect(postgres.responseTime, isNull);
+        expect(postgres.uptime24h, 1);
+        expect(postgres.extra, isNull);
+      },
+    );
   });
 }
