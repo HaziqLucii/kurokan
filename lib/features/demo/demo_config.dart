@@ -22,4 +22,12 @@ AppConfig demoConfig() => const AppConfig(
       settings: {},
     ),
   ],
+  containers: [
+    SourceEntry(
+      kind: SourceKind.containers,
+      id: 'demo-containers',
+      provider: 'demo',
+      settings: {},
+    ),
+  ],
 );
