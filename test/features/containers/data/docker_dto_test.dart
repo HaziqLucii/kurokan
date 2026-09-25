@@ -141,5 +141,37 @@ void main() {
       };
       expect(DockerStatsDTO.fromJson(json).memUsed, 1000);
     });
+
+    test('a negative cpu delta (a counter that went backwards between the '
+        'two snapshots, e.g. a mid-window restart) yields a null cpuPercent, '
+        'not a negative one', () {
+      final json = {
+        'cpu_stats': {
+          'cpu_usage': {'total_usage': 10}, // lower than precpu
+          'system_cpu_usage': 2000,
+          'online_cpus': 4,
+        },
+        'precpu_stats': {
+          'cpu_usage': {'total_usage': 500},
+          'system_cpu_usage': 1000,
+        },
+        'memory_stats': <String, dynamic>{},
+      };
+      expect(DockerStatsDTO.fromJson(json).cpuPercent, isNull);
+    });
+
+    test('a memory offset exceeding usage yields a null memUsed, not a '
+        'negative one', () {
+      final json = {
+        'cpu_stats': <String, dynamic>{},
+        'precpu_stats': <String, dynamic>{},
+        'memory_stats': {
+          'usage': 100,
+          'limit': 2000,
+          'stats': {'inactive_file': 500},
+        },
+      };
+      expect(DockerStatsDTO.fromJson(json).memUsed, isNull);
+    });
   });
 }

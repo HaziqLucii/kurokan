@@ -98,8 +98,12 @@ class DockerStatsDTO {
         presystemUsage != null &&
         onlineCpus != null) {
       final systemDelta = systemUsage - presystemUsage;
-      if (systemDelta > 0) {
-        final cpuDelta = cpuUsage - precpuUsage;
+      final cpuDelta = cpuUsage - precpuUsage;
+      // A negative delta (a counter that went backwards between the two
+      // snapshots, e.g. the container restarted and its cgroup counters
+      // reset) means the two reads aren't comparable; treat it the same
+      // as the Podman quirk above rather than surfacing a negative percent.
+      if (systemDelta > 0 && cpuDelta >= 0) {
         cpuPercent = (cpuDelta / systemDelta) * onlineCpus * 100;
       }
     }
@@ -110,7 +114,14 @@ class DockerStatsDTO {
     final memStats = memoryStats['stats'] as Map<String, dynamic>?;
     final inactiveFile = (memStats?['inactive_file'] as num?)?.toInt();
     final cache = (memStats?['cache'] as num?)?.toInt();
-    final memUsed = usage == null ? null : usage - (inactiveFile ?? cache ?? 0);
+    // A negative result (the inactive_file/cache offset exceeding usage,
+    // seen in practice right after a container starts) isn't a real used
+    // amount; null reads as "unavailable" rather than a nonsensical
+    // negative number.
+    final rawMemUsed = usage == null
+        ? null
+        : usage - (inactiveFile ?? cache ?? 0);
+    final memUsed = (rawMemUsed != null && rawMemUsed < 0) ? null : rawMemUsed;
 
     return DockerStatsDTO(
       cpuPercent: cpuPercent,

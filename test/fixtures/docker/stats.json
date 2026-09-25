@@ -6,7 +6,7 @@
     "cpu_usage": {
       "total_usage": 553410000,
       "usage_in_kernelmode": 152106000,
-      "usage_in_usermode": 200554000
+      "usage_in_usermode": 401304000
     },
     "system_cpu_usage": 191159840000000,
     "online_cpus": 8,

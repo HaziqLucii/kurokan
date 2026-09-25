@@ -104,6 +104,20 @@ void main() {
       expect((endpoint as UnixSocket).path, '/run/user/1000/docker.sock');
     });
 
+    test('a rootless Podman socket under \$XDG_RUNTIME_DIR/podman is a '
+        'candidate when XDG_RUNTIME_DIR is set (the reliable path: unlike '
+        '\$UID, systemd user sessions actually export this)', () {
+      final endpoint = resolveDockerEndpoint(
+        'auto',
+        env: const {'XDG_RUNTIME_DIR': '/run/user/1000'},
+        exists: (path) => path == '/run/user/1000/podman/podman.sock',
+      );
+      expect(
+        (endpoint as UnixSocket).path,
+        '/run/user/1000/podman/podman.sock',
+      );
+    });
+
     test(
       'a podman socket under /run/user/\$UID is a candidate when UID is set',
       () {

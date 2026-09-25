@@ -782,9 +782,19 @@ finished `DockerSource.fetch()` directly against the live socket
 end-to-end (a throwaway script, deleted after) and confirmed sane
 CPU%/mem/health/state output before tearing the containers down. The
 fixtures under `test/fixtures/docker/` are trimmed captures of that real
-traffic (container names changed to something demo-appropriate;
-`test/fixtures/docker/stats_podman_zero_precpu.json` is the one exception,
-synthesized, since this machine has no Podman to capture from).
+traffic (container names changed to something demo-appropriate).
+`test/fixtures/docker/stats_podman_zero_precpu.json` is fully synthesized,
+since this machine has no Podman to capture from. `stats.json`'s CPU
+counters are also hand-adjusted, not a pure capture: the real container
+was idle (0% CPU) at capture time, which doesn't exercise the percent
+math in a test meaningfully, so `total_usage` was nudged up to produce a
+realistic ~20% reading. `refuter` review caught that this nudge, done
+during the initial pass, left `usage_in_kernelmode`/`usage_in_usermode`
+unadjusted, so they no longer sum to the (bumped) `total_usage` — a real
+cgroup read can't do that. `DockerStatsDTO` never reads those two fields,
+so it had no effect on any test's correctness, but it made the fixture
+look less like a real capture than it should; fixed by bumping
+`usage_in_usermode` by the same amount as `total_usage`.
 
 **Transport** (`lib/core/net/docker_client_io.dart`, inside the Phase 1.0
 `dart:io` allowlist as a `core/net/*_io.dart` file): `DockerEndpoint` is
@@ -820,9 +830,17 @@ whatever machine runs them — this machine has a real OrbStack socket at
 the default path, which would otherwise make a broken "no candidate
 found" fallback path look like it passed for the wrong reason. The
 `/run/user/$UID/podman/podman.sock` candidate depends on a `UID`
-environment variable most shells don't export by default (an explicit
-`endpoint` setting or `DOCKER_HOST` is the reliable path for that case);
-noted as a known limitation, not fixed here.
+environment variable that, confirmed during `refuter` review, isn't just
+"some shells don't export it" — it's empty in `printenv` under both zsh
+and bash on this machine, and a GUI-launched app has no shell to inherit
+it from regardless, so this candidate is effectively dead in real use.
+Added `$XDG_RUNTIME_DIR/podman/podman.sock` ahead of it in the candidate
+list: rootless Podman's systemd user session actually exports
+`XDG_RUNTIME_DIR` by default, so that candidate has a real chance of
+matching where the `$UID` one doesn't. The `$UID` candidate is kept
+anyway for a shell session that happens to export it; an explicit
+`endpoint` setting or `DOCKER_HOST` remains the fully reliable path
+either way.
 
 **DockerSource** (`lib/features/containers/data/docker_source.dart`):
 `/_ping` and `/info` first, as connectivity/sanity checks (matching
@@ -849,15 +867,40 @@ degrade to defaults (health `none`, restart count 0, every gauge/
 "one straggler shouldn't take down the group" principle Phase 2.1's
 uptime parsing and Phase 1.4's polling already apply, just at the level
 of one container within one source's fetch instead of one source within
-the dashboard.
+the dashboard. Two things `refuter` review surfaced here, both accepted
+rather than fixed:
+- A degraded container's `restartCount: 0`/`health: none` is
+  indistinguishable from a container that's genuinely healthy with zero
+  restarts; the only visible tell is its uptime column reading `—` even
+  though the container is running. Fixing this would mean adding a
+  tri-state ("unknown" vs "zero") to `ContainerStatus`, which the plan's
+  own literal field shapes (`final int restartCount`, non-nullable) don't
+  have room for; not changed here.
+- `.timeout()` on the per-container calls doesn't cancel the underlying
+  request — `package:http`'s `Client` has no cancellation token, so a
+  request against a hung daemon keeps running in the background past the
+  3s the caller stops waiting for it. This is an existing property of
+  every source in this codebase that uses `.timeout()` this way
+  (`webdock_source.dart`, `uptime_kuma_metrics_source.dart` included), not
+  something new here. It matters more for Docker specifically because a
+  fleet of many containers polled at `concurrency: 4` against a genuinely
+  hung daemon could accumulate open sockets faster than those sources
+  ever would; `StatsMode.none` is the documented way out for a large
+  fleet, not a code fix.
 
 **CPU%/mem, and what the live capture actually revealed** (`docker_dto.dart`):
 `(cpu.total - precpu.total) / (system - presystem) * online_cpus * 100`,
-null (not a divide-by-zero, not a NaN) when `precpu.total == 0` (the
-documented Podman quirk), `system - presystem <= 0`, or any of the four
-inputs is missing. mem = `usage - (inactive_file ?? cache ?? 0)`. Three
-things only the live capture surfaced, none of which the plan's own text
-called out:
+null (not a divide-by-zero, not a NaN, and — fixed after `refuter` review
+caught the first version missing this — not a negative percent either)
+when `precpu.total == 0` (the documented Podman quirk), `system -
+presystem <= 0`, `cpu.total - precpu.total < 0` (a cgroup counter that
+went backwards between the two snapshots, e.g. the container restarted
+mid-window), or any of the four inputs is missing. mem = `usage -
+(inactive_file ?? cache ?? 0)`, floored at null rather than a negative
+number when the offset exceeds `usage` (seen in practice right after a
+container starts, before its cgroup memory stats stabilize) — also a
+`refuter`-caught fix, not part of the original formula. Three things only
+the live capture surfaced, none of which the plan's own text called out:
 - A **stopped container's** `/stats` response is `200 OK`, not an error —
   but `memory_stats` is `{}` and `cpu_stats` has no `system_cpu_usage` key
   at all. Both DTOs treat every field as optional for exactly this reason.

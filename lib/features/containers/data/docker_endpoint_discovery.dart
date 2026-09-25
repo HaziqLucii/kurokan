@@ -36,6 +36,14 @@ DockerEndpoint resolveDockerEndpoint(
     if (home != null) '$home/.docker/run/docker.sock',
     if (home != null) '$home/.orbstack/run/docker.sock',
     if (home != null) '$home/.colima/default/docker.sock',
+    // $XDG_RUNTIME_DIR/podman/podman.sock first: rootless Podman actually
+    // sets XDG_RUNTIME_DIR (systemd user sessions export it by default),
+    // whereas $UID is a shell-builtin variable most shells never export to
+    // the environment at all, and a GUI-launched app has no shell to
+    // inherit it from either way — this candidate is effectively dead in
+    // practice, kept only for a shell session that happens to export it.
+    if (xdgRuntimeDir != null && xdgRuntimeDir.isNotEmpty)
+      '$xdgRuntimeDir/podman/podman.sock',
     if (uid != null && uid.isNotEmpty) '/run/user/$uid/podman/podman.sock',
   ];
   for (final path in candidates) {
