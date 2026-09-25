@@ -8,7 +8,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:kurokan/app.dart';
 import 'package:kurokan/core/config/app_config.dart';
 import 'package:kurokan/core/config/config_provider.dart';
+import 'package:kurokan/features/containers/presentation/containers_provider.dart';
 import 'package:kurokan/features/demo/demo_config.dart';
+import 'package:kurokan/features/demo/demo_container_source.dart';
 import 'package:kurokan/features/demo/demo_host_source.dart';
 import 'package:kurokan/features/demo/demo_monitor_source.dart';
 import 'package:kurokan/features/demo/demo_scenario.dart';
@@ -36,10 +38,15 @@ Future<void> _pumpDashboard(
     ProviderScope(
       overrides: [
         appConfigProvider.overrideWithValue(
-          AppConfig(hosts: demo.hosts, uptime: demo.uptime, theme: theme),
+          AppConfig(
+            hosts: demo.hosts,
+            uptime: demo.uptime,
+            containers: demo.containers,
+            theme: theme,
+          ),
         ),
-        // 'demo-uptime'/'demo-host' are the fixed ids demoConfig() gives
-        // its entries.
+        // 'demo-uptime'/'demo-host'/'demo-containers' are the fixed ids
+        // demoConfig() gives its entries.
         uptimeSourceProvider('demo-uptime').overrideWithValue(
           DemoMonitorSource(
             clock: _fixedClock,
@@ -48,6 +55,12 @@ Future<void> _pumpDashboard(
         ),
         hostsSourceProvider('demo-host').overrideWithValue(
           DemoHostSource(clock: _fixedClock, scenario: DemoScenario.incident),
+        ),
+        containersSourceProvider('demo-containers').overrideWithValue(
+          DemoContainerSource(
+            clock: _fixedClock,
+            scenario: DemoScenario.incident,
+          ),
         ),
       ],
       child: const App(),

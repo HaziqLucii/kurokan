@@ -113,63 +113,114 @@ class _VitalsBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = context.tokens;
-    return Stack(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            KvRow.text('Server', vitals.slug),
-            KvRow(
-              label: 'Status',
-              value: Text(
-                '${hostStatusGlyph(vitals.status)} ${vitals.status.toUpperCase()}',
-                style: TextStyle(color: t.ink),
-              ),
-            ),
-            KvRow.text('Procs', vitals.processCount?.toString() ?? '—'),
-            KvRow.text('Sampled', _time(vitals.sampledAt)),
-            const SizedBox(height: 16),
-            Expanded(
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final columns = (constraints.maxWidth / 151).floor().clamp(
-                    1,
-                    8,
-                  );
-                  return GridView.count(
-                    crossAxisCount: columns,
-                    mainAxisSpacing: 1,
-                    crossAxisSpacing: 1,
-                    childAspectRatio: (constraints.maxWidth / columns) / 112,
-                    physics: const NeverScrollableScrollPhysics(),
-                    children: [
-                      _percentTile(
-                        label: 'CPU',
-                        gauge: vitals.cpu,
-                        sub: (g) =>
-                            '${g.used.toStringAsFixed(1)} / ${_fixed(g.allowed)} ${g.unit}',
-                      ),
-                      _percentTile(
-                        label: 'Mem',
-                        gauge: vitals.memory,
-                        sub: (g) =>
-                            '${(g.used / 1024).toStringAsFixed(1)} / ${_fixed(g.allowed != null ? g.allowed! / 1024 : null)} GB',
-                      ),
-                      _percentTile(
-                        label: 'Disk',
-                        gauge: vitals.disk,
-                        sub: (g) =>
-                            '${(g.used / 1024).toStringAsFixed(1)} / ${_fixed(g.allowed != null ? g.allowed! / 1024 : null)} GB',
-                      ),
-                      _networkTile(vitals.network),
-                    ],
-                  );
-                },
-              ),
-            ),
-          ],
+        KvRow.text('Server', vitals.slug),
+        KvRow(
+          label: 'Status',
+          value: Text(
+            '${hostStatusGlyph(vitals.status)} ${vitals.status.toUpperCase()}',
+            style: TextStyle(color: t.ink),
+          ),
         ),
-        const Positioned(right: 0, bottom: 6, child: HalftoneDot()),
+        KvRow.text('Procs', vitals.processCount?.toString() ?? '—'),
+        KvRow.text('Sampled', _time(vitals.sampledAt)),
+        const SizedBox(height: 16),
+        Expanded(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              const tileSpacing = 1.0;
+              const tileCount = 4; // CPU, Mem, Disk, Network
+              // Picking columns purely from width/151 (a "comfortable" tile
+              // width) meant a moderately narrower window could drop from 4
+              // columns to 2 well before it was actually necessary — and
+              // fewer columns means more ROWS for the same 4 tiles, which
+              // starves every row's height even though total available
+              // height didn't change. Preferring the highest column count
+              // (fewest rows) down to a much narrower per-tile minimum keeps
+              // all 4 tiles in a single row for most realistic widths, so
+              // row height stays governed by the panel's actual height, not
+              // by how narrow the window happens to be.
+              const minTileWidth = 70.0;
+              var columns = 1;
+              for (final c in [4, 3, 2, 1]) {
+                if (constraints.maxWidth / c >= minTileWidth) {
+                  columns = c;
+                  break;
+                }
+              }
+              final rows = (tileCount / columns).ceil();
+              final tileWidth = constraints.maxWidth / columns;
+              final rowBudget =
+                  (constraints.maxHeight - (rows - 1) * tileSpacing) / rows;
+              // Never forced above rowBudget: doing so (an earlier version
+              // of this fix used clamp(90.0, 112.0)) makes the grid's total
+              // content height exceed the space it's actually given, which
+              // silently clips the trailing row instead of shrinking to fit
+              // — exactly the bug this whole computation exists to avoid.
+              // StatTile's own FittedBox is the safety net for genuinely
+              // short panels (e.g. two Vitals panels stacked); with columns
+              // maximized above, that case is now rare.
+              final tileHeight = rowBudget.clamp(1.0, 112.0);
+              final gridHeight = rows * tileHeight + (rows - 1) * tileSpacing;
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  SizedBox(
+                    height: gridHeight,
+                    child: GridView.count(
+                      crossAxisCount: columns,
+                      mainAxisSpacing: tileSpacing,
+                      crossAxisSpacing: tileSpacing,
+                      childAspectRatio: tileWidth / tileHeight,
+                      physics: const NeverScrollableScrollPhysics(),
+                      children: [
+                        _percentTile(
+                          label: 'CPU',
+                          gauge: vitals.cpu,
+                          sub: (g) =>
+                              '${g.used.toStringAsFixed(1)} / ${_fixed(g.allowed)} ${g.unit}',
+                        ),
+                        _percentTile(
+                          label: 'Mem',
+                          gauge: vitals.memory,
+                          sub: (g) =>
+                              '${(g.used / 1024).toStringAsFixed(1)} / ${_fixed(g.allowed != null ? g.allowed! / 1024 : null)} GB',
+                        ),
+                        _percentTile(
+                          label: 'Disk',
+                          gauge: vitals.disk,
+                          sub: (g) =>
+                              '${(g.used / 1024).toStringAsFixed(1)} / ${_fixed(g.allowed != null ? g.allowed! / 1024 : null)} GB',
+                        ),
+                        _networkTile(vitals.network),
+                      ],
+                    ),
+                  ),
+                  // A Stack+Positioned dot anchored to this section's own
+                  // bottom-right corner painted over the grid whenever the
+                  // grid's real content height reached that corner (any
+                  // time rows > 1, or a tall single row) — the dot doesn't
+                  // know the grid's layout, it just paints on top of
+                  // whatever is there. Giving the dot its own Expanded
+                  // sibling below the (now content-sized, not
+                  // stretched) grid means it only ever occupies genuinely
+                  // leftover space and can't overlap a live tile.
+                  Expanded(
+                    child: Align(
+                      alignment: Alignment.bottomRight,
+                      child: Padding(
+                        padding: const EdgeInsets.only(bottom: 6),
+                        child: HalftoneDot(),
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
       ],
     );
   }

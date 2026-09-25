@@ -978,3 +978,83 @@ Not done here, deliberately: `docs/PROVIDERS.md` (the plan's own
 "documentation deliverables" list marks it "Phase 2", not specifically
 2.2). A walkthrough is more useful once there's more than one real
 example to generalize from; deferred to later in Phase 2.
+
+## 2026-09-25 — Post-2.2 bugfix pass: Vitals grid sizing, Containers header, demo mode
+
+After #12 merged, running the real app against a real Docker daemon
+surfaced three bugs no golden or widget test had caught, since all three
+only show up with real window resizing or real demo-mode wiring rather
+than the fixed-size harness widths existing tests use.
+
+**demoConfig() never included a containers source.** `DemoContainerSource`
+and `demoContainerSpec` were built in Phase 2.2 specifically so demo mode
+could show the headline panel without real infrastructure, but the entry
+was never actually added to `demoConfig()`, so "Try with demo data" never
+rendered a Containers panel. Fixed by adding the entry; `dashboard_golden_test.dart`'s
+overrides and both golden PNGs (regenerated on Linux CI, see below) updated
+to match the panel now appearing in the harness's own render.
+
+**Containers panel's NAME header wrapped to two lines** instead of
+ellipsizing, because `ContainersColumnHeader`'s header `Text` widgets
+had no `maxLines`/`overflow`/`softWrap` set at all — only the row data
+cells did. Fixed by adding the same single-line/ellipsis protection to
+every header cell, plus narrowing the fixed IMAGE/UP/RST/CPU/MEM column
+widths slightly to leave NAME more room in practice.
+
+**Vitals grid tiles (Disk/Network) went invisible at narrower window
+widths — the more involved fix, and one that took three iterations to
+get right:**
+
+The grid picked its column count from width alone,
+`(constraints.maxWidth / 151).floor()`. That formula decreases columns
+as the window narrows, but fewer columns for the same 4 tiles means more
+*rows*, and more rows shrinks the per-row height budget even when the
+panel's actual available height hasn't changed at all — a purely
+width-driven resize was silently starving vertical space. The original
+Phase-1.5-era code used a fixed 112px tile height regardless of row
+count, which just clipped the trailing row outright; a first fix made
+tile height responsive to the real per-row budget but floored it at
+90px, which fixed that case but reintroduced the same clipping bug
+whenever the real budget dropped below 90 (forcing the grid taller than
+the space it was actually given, since the floor was enforced by
+clamping *up*, not down). A second attempt removed the floor entirely
+and leaned on `StatTile`'s own `FittedBox(fit: BoxFit.scaleDown)` as the
+only size-adaptation mechanism — this avoided clipping, but a
+moderately (not extremely) narrow window would shrink tiles enough that
+FittedBox scaled the whole tile, including the large percentage number,
+down to illegible text.
+
+The actual fix addresses the root cause instead of retuning the same
+threshold a third time: maximize columns (i.e. minimize rows) down to a
+much narrower per-tile minimum (70px, versus the original 151px), trying
+4 → 3 → 2 → 1 in that order and taking the first that fits. This keeps
+all 4 tiles in a single row for most realistic window widths, so row
+height stays governed by the panel's actual available height rather than
+by how many columns an arbitrary per-tile "comfortable width" allowed.
+Tile height is then capped at the real per-row budget with no floor
+(`rowBudget.clamp(1.0, 112.0)`) — it can never be forced above what the
+grid was actually given, which is the invariant that actually prevents
+clipping; `FittedBox` remains as the safety net for genuinely short
+panels (two Vitals panels stacked in a narrow column, the existing
+`dashboard_screen_test.dart` regression case), which is now a rarer case
+than before since maximizing columns avoids most of what used to trigger
+it.
+
+Separately, the halftone accent dot was a `Positioned` child in a
+`Stack` wrapping the whole panel body, anchored to the body's own
+bottom-right corner. Since the grid's `Expanded` filled that same body,
+the dot painted *on top of* whatever tile content reached that corner —
+visible as an odd dot pattern in the middle of the panel instead of a
+corner accent, reported directly from a running build. Fixed by giving
+the grid a content-sized `SizedBox` (exactly `rows * tileHeight +
+spacing`, not stretched to fill the remaining `Expanded`) followed by a
+sibling `Expanded(Align(bottomRight: ...))` for the dot — a structural
+fix, not a positioning tweak, so the dot can only ever land in space the
+grid didn't use.
+
+Golden PNGs regenerated via a throwaway `tmp/golden-regen` branch and
+workflow (push-triggered on ubuntu, `flutter test --update-goldens -t
+golden`, artifact uploaded, downloaded locally, branch deleted after) —
+goldens only compare reliably on Linux (see `flutter_test_config.dart`),
+so this stays the standing technique for any diff that changes rendered
+demo-mode output.

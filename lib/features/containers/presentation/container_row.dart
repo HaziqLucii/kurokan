@@ -5,7 +5,7 @@ import '../../../core/theme/typography.dart';
 import '../../../shared/widgets/status_glyph.dart';
 import '../domain/container_status.dart';
 
-const containerRowColumnWidths = [22.0, 96.0, 44.0, 52.0, 50.0, 56.0];
+const containerRowColumnWidths = [22.0, 64.0, 40.0, 36.0, 40.0, 48.0];
 
 String _glyphFor(ContainerStatus c) {
   if (c.state == ContainerState.running) {
@@ -92,6 +92,9 @@ class ContainerRow extends StatelessWidget {
             child: Text(
               _uptimeText(container.startedAt, now),
               textAlign: TextAlign.right,
+              maxLines: 1,
+              softWrap: false,
+              overflow: TextOverflow.ellipsis,
               style: AppTypography.row.copyWith(color: t.ink),
             ),
           ),
@@ -100,6 +103,9 @@ class ContainerRow extends StatelessWidget {
             child: Text(
               '${container.restartCount}',
               textAlign: TextAlign.right,
+              maxLines: 1,
+              softWrap: false,
+              overflow: TextOverflow.ellipsis,
               style: AppTypography.row.copyWith(color: restartColor),
             ),
           ),
@@ -108,6 +114,9 @@ class ContainerRow extends StatelessWidget {
             child: Text(
               _cpuText(container.cpuPercent),
               textAlign: TextAlign.right,
+              maxLines: 1,
+              softWrap: false,
+              overflow: TextOverflow.ellipsis,
               style: AppTypography.row.copyWith(color: t.ink),
             ),
           ),
@@ -116,6 +125,9 @@ class ContainerRow extends StatelessWidget {
             child: Text(
               _memText(container.memUsed),
               textAlign: TextAlign.right,
+              maxLines: 1,
+              softWrap: false,
+              overflow: TextOverflow.ellipsis,
               style: AppTypography.row.copyWith(color: t.ink),
             ),
           ),

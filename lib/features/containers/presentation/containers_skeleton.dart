@@ -56,26 +56,68 @@ class ContainersColumnHeader extends StatelessWidget {
       child: Row(
         children: [
           SizedBox(width: containerRowColumnWidths[0]),
-          Expanded(child: Text('NAME', style: style)),
+          Expanded(
+            child: Text(
+              'NAME',
+              maxLines: 1,
+              softWrap: false,
+              overflow: TextOverflow.ellipsis,
+              style: style,
+            ),
+          ),
           SizedBox(
             width: containerRowColumnWidths[1],
-            child: Text('IMAGE', style: style),
+            child: Text(
+              'IMAGE',
+              maxLines: 1,
+              softWrap: false,
+              overflow: TextOverflow.ellipsis,
+              style: style,
+            ),
           ),
           SizedBox(
             width: containerRowColumnWidths[2],
-            child: Text('UP', textAlign: TextAlign.right, style: style),
+            child: Text(
+              'UP',
+              textAlign: TextAlign.right,
+              maxLines: 1,
+              softWrap: false,
+              overflow: TextOverflow.ellipsis,
+              style: style,
+            ),
           ),
           SizedBox(
             width: containerRowColumnWidths[3],
-            child: Text('RST', textAlign: TextAlign.right, style: style),
+            child: Text(
+              'RST',
+              textAlign: TextAlign.right,
+              maxLines: 1,
+              softWrap: false,
+              overflow: TextOverflow.ellipsis,
+              style: style,
+            ),
           ),
           SizedBox(
             width: containerRowColumnWidths[4],
-            child: Text('CPU', textAlign: TextAlign.right, style: style),
+            child: Text(
+              'CPU',
+              textAlign: TextAlign.right,
+              maxLines: 1,
+              softWrap: false,
+              overflow: TextOverflow.ellipsis,
+              style: style,
+            ),
           ),
           SizedBox(
             width: containerRowColumnWidths[5],
-            child: Text('MEM', textAlign: TextAlign.right, style: style),
+            child: Text(
+              'MEM',
+              textAlign: TextAlign.right,
+              maxLines: 1,
+              softWrap: false,
+              overflow: TextOverflow.ellipsis,
+              style: style,
+            ),
           ),
         ],
       ),

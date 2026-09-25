@@ -373,6 +373,17 @@ void main() {
       // both sides wouldn't catch that).
       expect(find.text('first-server'), findsOneWidget);
       expect(find.text('second-server'), findsOneWidget);
+      // Regression check: two Vitals panels sharing the narrow column
+      // give each one roughly half the height, which isn't enough room
+      // for all 4 stat tiles (CPU/Mem/Disk/Network) at their normal
+      // fixed size in a single row. Before the grid could size tile
+      // height from the actually-available height (and shrink via
+      // FittedBox rather than being forced above it), the trailing
+      // tiles were silently clipped instead of all 4 being reachable.
+      expect(find.text('CPU'), findsNWidgets(2));
+      expect(find.text('MEM'), findsNWidgets(2));
+      expect(find.text('DISK'), findsNWidgets(2));
+      expect(find.text('NETWORK'), findsNWidgets(2));
 
       await _disposeTree(tester);
     },
