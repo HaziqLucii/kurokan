@@ -17,7 +17,7 @@ monitor_response_time{monitor_name="Docs",monitor_type="http"} 112
 
 class _ThrowingParser extends PrometheusMetricsParser {
   @override
-  List<MonitorStatus> parse(String body) =>
+  ParseResult parse(String body) =>
       throw const FormatException('synthetic parse failure');
 }
 

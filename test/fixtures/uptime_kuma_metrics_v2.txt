@@ -1,0 +1,32 @@
+# HELP monitor_status Monitor Status (1 = UP, 0= DOWN, 2= PENDING, 3= MAINTENANCE)
+# TYPE monitor_status gauge
+monitor_status{monitor_id="1",monitor_name="API",monitor_type="http",monitor_url="https://api.example.tld/",monitor_hostname="null",monitor_port="null",tag_slug="production"} 1
+monitor_status{monitor_id="2",monitor_name="Postgres",monitor_type="port",monitor_url="null",monitor_hostname="db.internal",monitor_port="5432"} 1
+
+# HELP monitor_response_time Monitor Response Time (ms)
+# TYPE monitor_response_time gauge
+monitor_response_time{monitor_id="1",monitor_name="API",monitor_type="http",monitor_url="https://api.example.tld/",monitor_hostname="null",monitor_port="null",tag_slug="production"} 87
+monitor_response_time{monitor_id="2",monitor_name="Postgres",monitor_type="port",monitor_url="null",monitor_hostname="db.internal",monitor_port="5432"} NaN
+
+# HELP monitor_response_time_seconds Monitor Response Time (seconds)
+# TYPE monitor_response_time_seconds gauge
+monitor_response_time_seconds{monitor_id="1",monitor_name="API",monitor_type="http",monitor_url="https://api.example.tld/",monitor_hostname="null",monitor_port="null",tag_slug="production"} 0.087
+
+# HELP monitor_uptime_ratio Monitor Uptime Ratio (0.0 to 1.0)
+# TYPE monitor_uptime_ratio gauge
+monitor_uptime_ratio{monitor_id="1",monitor_name="API",monitor_type="http",monitor_url="https://api.example.tld/",monitor_hostname="null",monitor_port="null",tag_slug="production",window="1d"} 0.9999
+monitor_uptime_ratio{monitor_id="1",monitor_name="API",monitor_type="http",monitor_url="https://api.example.tld/",monitor_hostname="null",monitor_port="null",tag_slug="production",window="30d"} 0.9995
+monitor_uptime_ratio{monitor_id="1",monitor_name="API",monitor_type="http",monitor_url="https://api.example.tld/",monitor_hostname="null",monitor_port="null",tag_slug="production",window="365d"} 0.999
+monitor_uptime_ratio{monitor_id="2",monitor_name="Postgres",monitor_type="port",monitor_url="null",monitor_hostname="db.internal",monitor_port="5432",window="1d"} 1
+
+# HELP monitor_cert_days_remaining The number of days remaining until the certificate expires
+# TYPE monitor_cert_days_remaining gauge
+monitor_cert_days_remaining{monitor_id="1",monitor_name="API",monitor_type="http",monitor_url="https://api.example.tld/",monitor_hostname="null",monitor_port="null",tag_slug="production"} 58
+
+# HELP monitor_cert_is_valid Is the certificate still valid? (1 = Yes, 0= No)
+# TYPE monitor_cert_is_valid gauge
+monitor_cert_is_valid{monitor_id="1",monitor_name="API",monitor_type="http",monitor_url="https://api.example.tld/",monitor_hostname="null",monitor_port="null",tag_slug="production"} 1
+
+# HELP app_version The service version by package.json
+# TYPE app_version gauge
+app_version{version="1.24.0",major="1",minor="24",patch="0"} 1

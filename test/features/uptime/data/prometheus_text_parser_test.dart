@@ -11,7 +11,8 @@ void main() {
     final body = File(
       'test/fixtures/uptime_kuma_metrics.txt',
     ).readAsStringSync();
-    final monitors = parser.parse(body);
+    final result = parser.parse(body);
+    final monitors = result.monitors;
 
     test(
       'extracts exactly the monitor_* rows, ignoring process_*/nodejs_*/app_version',
@@ -47,6 +48,12 @@ void main() {
         }
       },
     );
+
+    test('hasIds/hasUptime are both false: this real 1.23.17 capture has '
+        'neither monitor_id nor monitor_uptime_ratio', () {
+      expect(result.hasIds, isFalse);
+      expect(result.hasUptime, isFalse);
+    });
   });
 
   group('synthetic edge cases', () {
@@ -57,7 +64,7 @@ void main() {
 monitor_status{monitor_name="Weird \\"Name\\" \\\\ Test",monitor_type="port"} 0
 monitor_response_time{monitor_name="Weird \\"Name\\" \\\\ Test",monitor_type="port"} -1
 ''';
-        final monitors = parser.parse(body);
+        final monitors = parser.parse(body).monitors;
         expect(monitors, hasLength(1));
         expect(monitors.single.name, 'Weird "Name" \\ Test');
         expect(monitors.single.state, MonitorState.down);
@@ -69,7 +76,7 @@ monitor_response_time{monitor_name="Weird \\"Name\\" \\\\ Test",monitor_type="po
 monitor_status{monitor_name="X",monitor_type="http"} 1
 monitor_response_time{monitor_name="X",monitor_type="http"} -1
 ''';
-      expect(parser.parse(body).single.responseTime, isNull);
+      expect(parser.parse(body).monitors.single.responseTime, isNull);
     });
 
     test('treats empty string and literal "null" labels as absent', () {
@@ -78,7 +85,7 @@ monitor_status{monitor_name="X",monitor_type="http",monitor_hostname="null",moni
 ''';
       // absent labels simply aren't surfaced on the model; this should not throw
       // and should still resolve the monitor by name.
-      expect(parser.parse(body).single.name, 'X');
+      expect(parser.parse(body).monitors.single.name, 'X');
     });
 
     test('maps status codes to the right MonitorState', () {
@@ -88,20 +95,25 @@ monitor_status{monitor_name="Down",monitor_type="http"} 0
 monitor_status{monitor_name="Pending",monitor_type="http"} 2
 monitor_status{monitor_name="Maint",monitor_type="http"} 3
 ''';
-      final byName = {for (final m in parser.parse(body)) m.name: m.state};
+      final byName = {
+        for (final m in parser.parse(body).monitors) m.name: m.state,
+      };
       expect(byName['Up'], MonitorState.up);
       expect(byName['Down'], MonitorState.down);
       expect(byName['Pending'], MonitorState.pending);
       expect(byName['Maint'], MonitorState.maintenance);
     });
 
-    test('takes only the window="1d" uptime ratio, ignoring 30d/365d', () {
+    test('takes the window="1d" uptime ratio and puts 30d/365d in extra', () {
       const body = '''
 monitor_status{monitor_name="X",monitor_type="http"} 1
 monitor_uptime_ratio{monitor_name="X",monitor_type="http",window="1d"} 0.9998
 monitor_uptime_ratio{monitor_name="X",monitor_type="http",window="30d"} 0.5
+monitor_uptime_ratio{monitor_name="X",monitor_type="http",window="365d"} 0.25
 ''';
-      expect(parser.parse(body).single.uptime24h, 0.9998);
+      final m = parser.parse(body).monitors.single;
+      expect(m.uptime24h, 0.9998);
+      expect(m.extra, {'uptime_30d': '0.5', 'uptime_365d': '0.25'});
     });
 
     test('flags an invalid or soon-expiring cert', () {
@@ -110,7 +122,7 @@ monitor_status{monitor_name="X",monitor_type="http"} 1
 monitor_cert_days_remaining{monitor_name="X",monitor_type="http"} 6
 monitor_cert_is_valid{monitor_name="X",monitor_type="http"} 0
 ''';
-      final m = parser.parse(body).single;
+      final m = parser.parse(body).monitors.single;
       expect(m.certDaysRemaining, 6);
       expect(m.certValid, isFalse);
     });
@@ -122,7 +134,7 @@ monitor_cert_is_valid{monitor_name="X",monitor_type="http"} 0
 process_cpu_seconds_total 123.45
 monitor_status{monitor_name="X",monitor_type="http"} 1
 ''';
-      expect(parser.parse(body), hasLength(1));
+      expect(parser.parse(body).monitors, hasLength(1));
     });
 
     test(
@@ -133,7 +145,7 @@ monitor_status{monitor_name="X",monitor_type="http"} 1
 # TYPE process_cpu_seconds_total counter
 process_cpu_seconds_total 123.45
 ''';
-        expect(parser.parse(body), isEmpty);
+        expect(parser.parse(body).monitors, isEmpty);
       },
     );
 
@@ -154,13 +166,143 @@ process_cpu_seconds_total 123.45
 monitor_status{monitor_name="API",monitor_type="http",monitor_url="https://a.example.tld/"} 1
 monitor_status{monitor_name="API",monitor_type="http",monitor_url="https://b.example.tld/"} 0
 ''';
-        final monitors = parser.parse(body);
+        final monitors = parser.parse(body).monitors;
         expect(monitors, hasLength(2));
         expect(monitors.map((m) => m.state).toSet(), {
           MonitorState.up,
           MonitorState.down,
         });
         expect(monitors.map((m) => m.id).toSet(), hasLength(2));
+      },
+    );
+
+    test('groups by monitor_id when present, not the full label set', () {
+      const body = '''
+monitor_status{monitor_id="7",monitor_name="X",monitor_type="http",monitor_url="https://a.example.tld/"} 1
+monitor_response_time{monitor_id="7",monitor_name="X",monitor_type="http",monitor_url="https://b.example.tld/"} 42
+''';
+      final result = parser.parse(body);
+      expect(result.monitors, hasLength(1));
+      expect(result.monitors.single.id, '7');
+      expect(
+        result.monitors.single.responseTime,
+        const Duration(milliseconds: 42),
+      );
+      expect(result.hasIds, isTrue);
+    });
+
+    test('when a rename leaves two monitor_status lines sharing the same id, '
+        'the last one in the body wins the displayed name/type (a '
+        'scrape-order heuristic, not a semantic "which one is live" check: '
+        'a real orphan series still emits its own monitor_status line, so '
+        'both compete on the same field, same as any other metric)', () {
+      const body = '''
+monitor_status{monitor_id="7",monitor_name="Old Name (stale)",monitor_type="http"} 1
+monitor_response_time{monitor_id="7",monitor_name="Old Name (stale)",monitor_type="http"} 900
+monitor_status{monitor_id="7",monitor_name="New Name",monitor_type="port"} 1
+monitor_response_time{monitor_id="7",monitor_name="New Name",monitor_type="port"} 5
+''';
+      final m = parser.parse(body).monitors.single;
+      expect(m.name, 'New Name');
+      expect(m.type, 'port');
+      // Every field for a shared key follows the same last-line-wins
+      // rule, not something special to monitor_status.
+      expect(m.responseTime, const Duration(milliseconds: 5));
+    });
+
+    test('a NaN value (double.tryParse("NaN") succeeds in Dart) is ignored, '
+        'not stored as a NaN percent/duration', () {
+      const body = '''
+monitor_status{monitor_name="X",monitor_type="http"} 1
+monitor_response_time{monitor_name="X",monitor_type="http"} NaN
+monitor_uptime_ratio{monitor_name="X",monitor_type="http",window="1d"} NaN
+''';
+      final m = parser.parse(body).monitors.single;
+      expect(m.responseTime, isNull);
+      expect(m.uptime24h, isNull);
+    });
+
+    test('a tag label present on only one of two lines for the same monitor '
+        'does not split it into two rows, with or without monitor_id', () {
+      const withoutId = '''
+monitor_status{monitor_name="X",monitor_type="http",tag_slug="production"} 1
+monitor_response_time{monitor_name="X",monitor_type="http"} 10
+''';
+      final a = parser.parse(withoutId).monitors;
+      expect(a, hasLength(1));
+      expect(a.single.responseTime, const Duration(milliseconds: 10));
+
+      const withId = '''
+monitor_status{monitor_id="9",monitor_name="X",monitor_type="http",tag_slug="production"} 1
+monitor_response_time{monitor_id="9",monitor_name="X",monitor_type="http"} 10
+''';
+      final b = parser.parse(withId).monitors;
+      expect(b, hasLength(1));
+      expect(b.single.responseTime, const Duration(milliseconds: 10));
+    });
+
+    test(
+      'monitor_response_time_seconds is ignored; monitor_response_time (ms) wins',
+      () {
+        const body = '''
+monitor_status{monitor_name="X",monitor_type="http"} 1
+monitor_response_time{monitor_name="X",monitor_type="http"} 112
+monitor_response_time_seconds{monitor_name="X",monitor_type="http"} 0.112
+''';
+        final m = parser.parse(body).monitors.single;
+        expect(m.responseTime, const Duration(milliseconds: 112));
+      },
+    );
+
+    test('hasUptime is false when no monitor_uptime_ratio line is present', () {
+      const body = '''
+monitor_status{monitor_name="X",monitor_type="http"} 1
+''';
+      expect(parser.parse(body).hasUptime, isFalse);
+    });
+
+    test('hasUptime is true even when every monitor_uptime_ratio value is NaN: '
+        'the instance is trying to report uptime, a garbage value is a '
+        'different problem than "this Kuma version has no uptime data"', () {
+      const body = '''
+monitor_status{monitor_name="X",monitor_type="http"} 1
+monitor_uptime_ratio{monitor_name="X",monitor_type="http",window="1d"} NaN
+''';
+      final result = parser.parse(body);
+      expect(result.hasUptime, isTrue);
+      expect(result.monitors.single.uptime24h, isNull);
+    });
+
+    test(
+      'against the v2 fixture (monitor_id, three windows, a tag label, a NaN)',
+      () {
+        final body = File(
+          'test/fixtures/uptime_kuma_metrics_v2.txt',
+        ).readAsStringSync();
+        final result = parser.parse(body);
+
+        expect(result.hasIds, isTrue);
+        expect(result.hasUptime, isTrue);
+        expect(result.monitors, hasLength(2));
+
+        final api = result.monitors.firstWhere((m) => m.id == '1');
+        expect(api.name, 'API');
+        expect(api.type, 'http');
+        expect(api.state, MonitorState.up);
+        expect(api.responseTime, const Duration(milliseconds: 87));
+        expect(api.uptime24h, 0.9999);
+        expect(api.extra, {'uptime_30d': '0.9995', 'uptime_365d': '0.999'});
+        expect(api.certDaysRemaining, 58);
+        expect(api.certValid, isTrue);
+
+        final postgres = result.monitors.firstWhere((m) => m.id == '2');
+        expect(postgres.name, 'Postgres');
+        expect(postgres.type, 'port');
+        expect(postgres.state, MonitorState.up);
+        // The NaN response time is dropped, not stored as NaN.
+        expect(postgres.responseTime, isNull);
+        expect(postgres.uptime24h, 1);
+        expect(postgres.extra, isNull);
       },
     );
   });
