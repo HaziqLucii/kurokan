@@ -9,6 +9,11 @@
       "provider": "webdock",
       "slug": "webdock-prod-01",
       "apiToken": "your-webdock-api-token"
+    },
+    {
+      "id": "prometheus",
+      "provider": "prometheus",
+      "url": "http://prometheus.example.tld:9090"
     }
   ],
   "uptime": [

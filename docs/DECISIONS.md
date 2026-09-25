@@ -1058,3 +1058,83 @@ golden`, artifact uploaded, downloaded locally, branch deleted after) —
 goldens only compare reliably on Linux (see `flutter_test_config.dart`),
 so this stays the standing technique for any diff that changes rendered
 demo-mode output.
+
+## 2026-09-25 — Prometheus + node_exporter (Phase 2.3)
+
+`lib/features/vps/data/prometheus_dto.dart` + `prometheus_node_source.dart`:
+`PrometheusNodeSource` is the first `HostsSource` that can return more than
+one `HostVitals` from a single config entry — one Prometheus server scraping
+N node_exporter targets becomes N hosts, rendered by the `HostTablePanel`
+Phase 2.0 already built for exactly this case. One `GET /api/v1/query` per
+metric via `Future.wait` (14 in total: `node_uname_info` for the host list
+and names, `up` for status, cpu/mem/disk/net, `node_load1|5|15`, uptime,
+`node_procs_running`), joined across queries by the `instance` label. An
+empty result vector for one metric degrades just that gauge to null for the
+affected host(s) (`ParseError` only for a genuinely malformed response, e.g.
+a non-vector `resultType`), matching the plan's explicit requirement and
+tested directly (`test/features/vps/data/prometheus_node_source_test.dart`).
+
+Live-verified against Haziq's own Prometheus (an EMAS-box instance scraping
+4 real VPS node_exporters) before writing any fixture, which surfaced two
+things the plan's own query list didn't anticipate:
+
+- Real-world Prometheus setups commonly scrape different node_exporter
+  targets under *different* `job` labels (one job per host, in this case),
+  not one shared job. That ruled out using `job` as the mechanism for
+  discovering which targets are node_exporter hosts — a plain `up` query
+  also matched an unrelated application-metrics job on the same instance
+  that happens to share the box. Host discovery instead comes from
+  `node_uname_info`, which only node_exporter targets ever export, so a
+  non-node_exporter `up` target simply never becomes a Kurokan host
+  regardless of its job label. `job`/`instanceRegex` remain optional
+  settings for the (less common) case of a single Prometheus scraping
+  multiple *node_exporter* fleets that need to stay in separate config
+  entries.
+- Auth: Prometheus itself has no built-in auth; confirmed directly by
+  querying Haziq's real endpoint with no credentials at all. `PromAuth` is
+  therefore optional (`null` sends no Authorization header at all) with a
+  single bearer-token field as the only auth mode shipped — the escape
+  hatch for a self-hoster running Prometheus behind an authenticating
+  reverse proxy. HTTP Basic auth was deliberately left out: no evidence any
+  target setup needs it, and it's trivial to add later behind the same
+  `PromAuth` type without a breaking change.
+
+Test fixtures (`test/fixtures/prometheus/*.json`) are synthetic, not the
+real captured responses: the repo is public, and Haziq's real fixture data
+would have leaked his actual server IPs, hostnames, and job names. Every
+fixture's *shape* (label sets, `resultType: "vector"`, the
+`[epoch_seconds, "value_string"]` sample tuple, which labels survive a
+`by(instance)` aggregation vs. a plain selector) was validated against the
+real endpoint first; only the identifying values were swapped for
+TEST-NET-3 addresses (`203.0.113.0/24`, already used in `webdock` fixtures)
+and generic host/job names.
+
+Model mapping: memory/disk gauges convert bytes to MiB (matching the
+`Gauge`/`vitals_panel.dart` convention `webdock_source.dart` already
+established — the UI's sub-text formatting for those two hardcodes a
+divide-by-1024 to reach GB, so any provider's raw units must agree on MiB
+in, not just "some byte-derived number"). Network sums 24h receive +
+transmit into GiB; `allowed` is the optional `networkQuotaGiB` setting or
+null (renders as an unbounded/"—" tile via the same `Gauge` convention
+webdock already relies on when a resource has no natural cap). CPU reuses
+`Gauge.fromUsedAllowed(percent, 100, unit: '%')` rather than a new gauge
+constructor, since PromQL already yields a 0-100 percent directly; this
+does mean the tile's generic `sub` text (`used / allowed unit`, shared
+across every `HostsSource`) renders as e.g. "82.0 / 100.0 %" for
+Prometheus, mildly redundant against the tile's own big percent number —
+a pre-existing quirk of that shared, provider-agnostic sub-text format
+(webdock's own CPU tile has the same "raw used/allowed, unit" shape), not
+a new problem worth a UI change for one provider.
+
+`HostVitals.cpu` is non-nullable by existing model contract (every current
+provider always has one); a missing `node_cpu_seconds_total` sample for a
+live node_exporter target isn't expected in practice, so that case
+degrades to an explicit "unavailable" gauge rather than changing the
+shared model's nullability for an unreached edge.
+
+Not done here: no settings-form field for any of this yet (Phase 3's
+job); `docs/config.schema.json` needed no change (same reasoning as
+Phase 2.2's Docker entry — `sourceEntry`'s generic settings shape already
+covers provider-specific fields). `config.example.json` gained a second
+`hosts` entry demonstrating `prometheus` alongside the existing `webdock`
+one.

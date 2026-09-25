@@ -8,6 +8,8 @@ import 'package:kurokan/core/providers/provider_spec.dart';
 import 'package:kurokan/features/containers/data/docker_spec.dart';
 import 'package:kurokan/features/demo/demo_specs.dart';
 import 'package:kurokan/features/uptime/data/kuma_spec.dart';
+import 'package:kurokan/features/vps/data/prometheus_node_source.dart';
+import 'package:kurokan/features/vps/data/prometheus_node_spec.dart';
 import 'package:kurokan/features/vps/data/webdock_spec.dart';
 
 SourceDeps _fakeDeps() => SourceDeps(
@@ -49,7 +51,11 @@ void main() {
   });
 
   test('defaultRegistry contains every shipped provider', () {
-    expect(defaultRegistry.hosts, [webdockSpec, demoHostSpec]);
+    expect(defaultRegistry.hosts, [
+      webdockSpec,
+      prometheusNodeSpec,
+      demoHostSpec,
+    ]);
     expect(defaultRegistry.uptime, [kumaSpec, demoUptimeSpec]);
     expect(defaultRegistry.containers, [dockerSpec, demoContainerSpec]);
   });
@@ -148,6 +154,65 @@ void main() {
         settings: {},
       );
       expect(kumaSpec.label(entry), 'my-uptime-id');
+    });
+  });
+
+  group('prometheusNodeSpec', () {
+    test('label uses the url', () {
+      const entry = SourceEntry(
+        kind: SourceKind.host,
+        id: 'prom',
+        provider: 'prometheus',
+        settings: {'url': 'http://prom.test:9090'},
+      );
+      expect(prometheusNodeSpec.label(entry), 'http://prom.test:9090');
+    });
+
+    test('label falls back to id when url is absent', () {
+      const entry = SourceEntry(
+        kind: SourceKind.host,
+        id: 'my-prom-id',
+        provider: 'prometheus',
+        settings: {},
+      );
+      expect(prometheusNodeSpec.label(entry), 'my-prom-id');
+    });
+
+    test('create() only sets auth when authToken is present', () {
+      const withoutToken = SourceEntry(
+        kind: SourceKind.host,
+        id: 'prom',
+        provider: 'prometheus',
+        settings: {'url': 'http://prom.test:9090'},
+      );
+      const withToken = SourceEntry(
+        kind: SourceKind.host,
+        id: 'prom',
+        provider: 'prometheus',
+        settings: {'url': 'http://prom.test:9090', 'authToken': 'tok'},
+      );
+
+      final noAuth =
+          prometheusNodeSpec.create(withoutToken, _fakeDeps())
+              as PrometheusNodeSource;
+      final withAuth =
+          prometheusNodeSpec.create(withToken, _fakeDeps())
+              as PrometheusNodeSource;
+
+      expect(noAuth.auth, isNull);
+      expect(withAuth.auth?.bearerToken, 'tok');
+    });
+
+    test('create() parses networkQuotaGiB when present', () {
+      const entry = SourceEntry(
+        kind: SourceKind.host,
+        id: 'prom',
+        provider: 'prometheus',
+        settings: {'url': 'http://prom.test:9090', 'networkQuotaGiB': '2000'},
+      );
+      final source =
+          prometheusNodeSpec.create(entry, _fakeDeps()) as PrometheusNodeSource;
+      expect(source.networkQuotaGiB, 2000);
     });
   });
 
