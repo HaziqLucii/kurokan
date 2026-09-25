@@ -1058,3 +1058,148 @@ golden`, artifact uploaded, downloaded locally, branch deleted after) —
 goldens only compare reliably on Linux (see `flutter_test_config.dart`),
 so this stays the standing technique for any diff that changes rendered
 demo-mode output.
+
+## 2026-09-25 — Prometheus + node_exporter (Phase 2.3)
+
+`lib/features/vps/data/prometheus_dto.dart` + `prometheus_node_source.dart`:
+`PrometheusNodeSource` is the first `HostsSource` that can return more than
+one `HostVitals` from a single config entry — one Prometheus server scraping
+N node_exporter targets becomes N hosts, rendered by the `HostTablePanel`
+Phase 2.0 already built for exactly this case. One `GET /api/v1/query` per
+metric via `Future.wait` (14 in total: `node_uname_info` for the host list
+and names, `up` for status, cpu/mem/disk/net, `node_load1|5|15`, uptime,
+`node_procs_running`), joined across queries by the `instance` label. An
+empty result vector for one metric degrades just that gauge to null for the
+affected host(s) (`ParseError` only for a genuinely malformed response, e.g.
+a non-vector `resultType`), matching the plan's explicit requirement and
+tested directly (`test/features/vps/data/prometheus_node_source_test.dart`).
+
+Live-verified against Haziq's own Prometheus (an EMAS-box instance scraping
+4 real VPS node_exporters) before writing any fixture, which surfaced two
+things the plan's own query list didn't anticipate:
+
+- Real-world Prometheus setups commonly scrape different node_exporter
+  targets under *different* `job` labels (one job per host, in this case),
+  not one shared job. That ruled out using `job` as the mechanism for
+  discovering which targets are node_exporter hosts — a plain `up` query
+  also matched an unrelated application-metrics job on the same instance
+  that happens to share the box. Host discovery instead comes from
+  `node_uname_info`, which only node_exporter targets ever export, so a
+  non-node_exporter `up` target simply never becomes a Kurokan host
+  regardless of its job label. `job`/`instanceRegex` remain optional
+  settings for the (less common) case of a single Prometheus scraping
+  multiple *node_exporter* fleets that need to stay in separate config
+  entries.
+- Auth: Prometheus itself has no built-in auth; confirmed directly by
+  querying Haziq's real endpoint with no credentials at all. `PromAuth` is
+  therefore optional (`null` sends no Authorization header at all) with a
+  single bearer-token field as the only auth mode shipped — the escape
+  hatch for a self-hoster running Prometheus behind an authenticating
+  reverse proxy. HTTP Basic auth was deliberately left out: no evidence any
+  target setup needs it, and it's trivial to add later behind the same
+  `PromAuth` type without a breaking change.
+
+Test fixtures (`test/fixtures/prometheus/*.json`) are synthetic, not the
+real captured responses: the repo is public, and Haziq's real fixture data
+would have leaked his actual server IPs, hostnames, and job names. Every
+fixture's *shape* (label sets, `resultType: "vector"`, the
+`[epoch_seconds, "value_string"]` sample tuple, which labels survive a
+`by(instance)` aggregation vs. a plain selector) was validated against the
+real endpoint first; only the identifying values were swapped for
+TEST-NET-3 addresses (`203.0.113.0/24`, already used in `webdock` fixtures)
+and generic host/job names.
+
+Model mapping: memory/disk gauges convert bytes to MiB (matching the
+`Gauge`/`vitals_panel.dart` convention `webdock_source.dart` already
+established — the UI's sub-text formatting for those two hardcodes a
+divide-by-1024 to reach GB, so any provider's raw units must agree on MiB
+in, not just "some byte-derived number"). Network sums 24h receive +
+transmit into GiB; `allowed` is the optional `networkQuotaGiB` setting or
+null (renders as an unbounded/"—" tile via the same `Gauge` convention
+webdock already relies on when a resource has no natural cap). CPU reuses
+`Gauge.fromUsedAllowed(percent, 100, unit: '%')` rather than a new gauge
+constructor, since PromQL already yields a 0-100 percent directly; this
+does mean the tile's generic `sub` text (`used / allowed unit`, shared
+across every `HostsSource`) renders as e.g. "82.0 / 100.0 %" for
+Prometheus, mildly redundant against the tile's own big percent number —
+a pre-existing quirk of that shared, provider-agnostic sub-text format
+(webdock's own CPU tile has the same "raw used/allowed, unit" shape), not
+a new problem worth a UI change for one provider.
+
+`HostVitals.cpu` is non-nullable by existing model contract (every current
+provider always has one); a missing `node_cpu_seconds_total` sample for a
+live node_exporter target isn't expected in practice, so that case
+degrades to an explicit "unavailable" gauge rather than changing the
+shared model's nullability for an unreached edge.
+
+Not done here: no settings-form field for any of this yet (Phase 3's
+job); `docs/config.schema.json` needed no change (same reasoning as
+Phase 2.2's Docker entry — `sourceEntry`'s generic settings shape already
+covers provider-specific fields). `config.example.json` gained a second
+`hosts` entry demonstrating `prometheus` alongside the existing `webdock`
+one.
+
+`refuter`'s first pass on this phase's PR (#14) caught real bugs, not
+nitpicks, in the original design:
+
+- **A host that goes down would silently vanish instead of showing
+  down.** The original host-discovery query was a plain instant
+  `node_uname_info`. Prometheus writes a stale marker for every series a
+  target previously exposed the moment a scrape fails — except `up`
+  itself, which Prometheus always records (as 0) on every scrape attempt
+  regardless of success. A plain `node_uname_info` query therefore stops
+  returning a downed host almost immediately, which is the opposite of
+  what a monitoring dashboard should do with its main failure case. Fixed
+  by wrapping the name query in `last_over_time(node_uname_info{...}[1h])`,
+  which keeps a host's last-known name queryable for up to an hour after
+  it stops being scraped — long enough for `up=0` to still join against it
+  and render `status: 'error'` instead of the host disappearing.
+- **Joining every query on `instance` alone risked mixing up two
+  different jobs that share an instance label.** This phase's own
+  live-verification against a real deployment had already found that a
+  plain `up` query matches non-node_exporter targets sharing a box with a
+  node_exporter target; the fix at the time (deriving the host list from
+  `node_uname_info` instead of `up`) didn't fully close the gap, since
+  `up`, `node_load1`, disk, and every other per-host map were still keyed
+  by `instance` only. Fixed by joining every one of the 14 queries on
+  `(job, instance)` instead — including adding `job` to the two
+  `by(instance)` aggregations (cpu, network), which previously dropped the
+  label entirely.
+- **`_sel()` interpolated `job`/`instanceRegex` into a PromQL string
+  literal unescaped.** A regex containing an ordinary backslash escape
+  (this phase's own test used `10\..*`, a private-IP-prefix filter) broke
+  every one of the 14 queries against a real Prometheus with a
+  "bad_data: unknown escape sequence" lexer error — exactly the kind of
+  value these two optional settings exist to accept. Fixed with a small
+  escape helper (`\` → `\\`, `"` → `\"`) applied to both settings before
+  interpolation.
+- Two smaller robustness gaps: `PromSampleDTO.fromJson` used `double.parse`
+  directly, which throws a raw `FormatException` (escaping the
+  `FetchError` hierarchy every other failure in this source goes through)
+  on Prometheus's abbreviated `+Inf`/`-Inf` sample values (Dart's
+  `double.parse` only understands the unabbreviated `Infinity`); and
+  `.round()` was called on `NaN`/`Infinity` sample values without a guard,
+  throwing `UnsupportedError`. Both are valid PromQL sample values (a
+  `rate()` across a counter reset, a `0/0` in some derived expression),
+  rare but real. Fixed: `+Inf`/`-Inf` are normalized before parsing, any
+  other unparseable value throws `ParseError` explicitly, and a `_finite()`
+  guard treats `NaN`/`Infinity` the same as a missing sample (degrades the
+  gauge to null) rather than crashing.
+- One relabeling, not a logic fix: the `networkQuotaGiB` field was labeled
+  "GiB/mo" but compared against a 24h rolling window (the plan's own
+  explicit spec — kept as-is, since a 24h figure is more responsive for a
+  live dashboard than a static monthly one that barely moves), making the
+  displayed percentage read as roughly 1/30th of what a literal "per
+  month" quota would suggest. Relabeled to "GiB per 24h" with a hint
+  spelling out the comparison window, rather than changing the query to
+  match the old label.
+
+All fixes covered by new tests in
+`test/features/vps/data/prometheus_node_source_test.dart` (a host missing
+from `up` entirely but still present via `last_over_time`; escaped
+job/instanceRegex values with both a backslash and a quote; a NaN sample
+degrading a gauge instead of crashing on `.round()`; Prometheus's
+`+Inf`/`-Inf` parsing without throwing; a genuinely unparseable sample
+value still throwing `ParseError`), fixture files updated to include the
+`job` label the new `(job, instance)` keying requires. Second `refuter`
+pass confirmed clean before merge.

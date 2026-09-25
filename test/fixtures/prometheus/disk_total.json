@@ -1,0 +1,30 @@
+{
+  "status": "success",
+  "data": {
+    "resultType": "vector",
+    "result": [
+      {
+        "metric": {
+          "__name__": "node_filesystem_size_bytes",
+          "device": "/dev/sda1",
+          "fstype": "ext4",
+          "instance": "203.0.113.10:9100",
+          "job": "node",
+          "mountpoint": "/"
+        },
+        "value": [1758600000, "51539607552"]
+      },
+      {
+        "metric": {
+          "__name__": "node_filesystem_size_bytes",
+          "device": "/dev/sda1",
+          "fstype": "ext4",
+          "instance": "203.0.113.11:9100",
+          "job": "node",
+          "mountpoint": "/"
+        },
+        "value": [1758600000, "21474836480"]
+      }
+    ]
+  }
+}
