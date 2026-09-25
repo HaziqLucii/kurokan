@@ -55,7 +55,7 @@ class UptimeKumaMetricsSource implements MonitorSource {
     }
 
     try {
-      return _parser.parse(response.body);
+      return _parser.parse(response.body).monitors;
     } catch (e) {
       throw ParseError(e.toString());
     }

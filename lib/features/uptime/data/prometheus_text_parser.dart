@@ -1,13 +1,31 @@
 import '../domain/monitor_status.dart';
 
+/// [hasIds]: whether any monitor line carried a `monitor_id` label (older
+/// Kuma versions, e.g. 1.23.x, don't emit one). [hasUptime]: whether any
+/// `monitor_uptime_ratio` line was present at all, for any window — some
+/// Kuma versions don't emit uptime ratios, so the 24H column can show `—`
+/// because the data genuinely isn't there, not because of a parsing gap.
+class ParseResult {
+  final List<MonitorStatus> monitors;
+  final bool hasIds;
+  final bool hasUptime;
+
+  const ParseResult({
+    required this.monitors,
+    required this.hasIds,
+    required this.hasUptime,
+  });
+}
+
 class _Accumulator {
-  final String name;
+  String name;
   String type;
   MonitorState? state;
   Duration? responseTime;
   double? uptime24h;
   int? certDaysRemaining;
   bool? certValid;
+  Map<String, String>? extra;
 
   _Accumulator({required this.name, required this.type});
 }
@@ -22,10 +40,12 @@ class PrometheusMetricsParser {
     r'([a-zA-Z_][a-zA-Z0-9_]*)="((?:[^"\\]|\\.)*)"',
   );
 
-  List<MonitorStatus> parse(String body) {
+  ParseResult parse(String body) {
     final byKey = <String, _Accumulator>{};
     final order = <String>[];
     var matchedAnyLine = false;
+    var hasIds = false;
+    var hasUptime = false;
 
     for (final rawLine in body.split('\n')) {
       final line = rawLine.trimRight();
@@ -42,23 +62,40 @@ class PrometheusMetricsParser {
       final name = labels['monitor_name'];
       if (name == null) continue;
 
-      // Kuma allows duplicate display names; the series identity is the full
-      // label set (name/type/url/hostname/port), not the name alone.
-      final key = [
+      final monitorId = labels['monitor_id'];
+      if (monitorId != null) hasIds = true;
+
+      // Kuma allows duplicate display names; without a monitor_id, series
+      // identity falls back to the full label set (name/type/url/hostname/
+      // port). Tag labels are deliberately excluded from both: two monitors
+      // that differ only by tag are still the same monitor.
+      final compositeKey = [
         name,
         labels['monitor_type'] ?? '',
         labels['monitor_url'] ?? '',
         labels['monitor_hostname'] ?? '',
         labels['monitor_port'] ?? '',
       ].join('|');
+      final key = monitorId ?? compositeKey;
 
       final acc = byKey.putIfAbsent(key, () {
         order.add(key);
         return _Accumulator(name: name, type: labels['monitor_type'] ?? '');
       });
 
+      // monitor_status is authoritative for identity: right after a rename,
+      // a stale ("orphan") series sharing the same id can briefly still be
+      // scraped alongside the live one until Prometheus's cache catches up.
+      // Whichever series carries monitor_status wins the display name/type.
+      if (metric == 'monitor_status') {
+        acc.name = name;
+        acc.type = labels['monitor_type'] ?? acc.type;
+      }
+
       final value = double.tryParse(match.group(4)!);
-      if (value == null) continue;
+      // double.tryParse('NaN') succeeds in Dart (returns double.nan), so
+      // this needs its own explicit guard, not just a null check.
+      if (value == null || value.isNaN) continue;
 
       switch (metric) {
         case 'monitor_status':
@@ -68,11 +105,20 @@ class PrometheusMetricsParser {
               ? null
               : Duration(milliseconds: value.round());
         case 'monitor_uptime_ratio':
-          if (labels['window'] == '1d') acc.uptime24h = value;
+          hasUptime = true;
+          final window = labels['window'];
+          if (window == '1d') {
+            acc.uptime24h = value;
+          } else if (window == '30d' || window == '365d') {
+            (acc.extra ??= {})['uptime_$window'] = value.toString();
+          }
         case 'monitor_cert_days_remaining':
           acc.certDaysRemaining = value.round();
         case 'monitor_cert_is_valid':
           acc.certValid = value != 0;
+        // monitor_response_time_seconds and any other monitor_* metric not
+        // listed above (e.g. a future addition) is deliberately ignored:
+        // monitor_response_time (ms) is the one this app displays.
       }
     }
 
@@ -82,19 +128,24 @@ class PrometheusMetricsParser {
       );
     }
 
-    return [
-      for (final key in order)
-        MonitorStatus(
-          id: key,
-          name: byKey[key]!.name,
-          type: byKey[key]!.type,
-          state: byKey[key]!.state ?? MonitorState.pending,
-          responseTime: byKey[key]!.responseTime,
-          uptime24h: byKey[key]!.uptime24h,
-          certDaysRemaining: byKey[key]!.certDaysRemaining,
-          certValid: byKey[key]!.certValid,
-        ),
-    ];
+    return ParseResult(
+      monitors: [
+        for (final key in order)
+          MonitorStatus(
+            id: key,
+            name: byKey[key]!.name,
+            type: byKey[key]!.type,
+            state: byKey[key]!.state ?? MonitorState.pending,
+            responseTime: byKey[key]!.responseTime,
+            uptime24h: byKey[key]!.uptime24h,
+            certDaysRemaining: byKey[key]!.certDaysRemaining,
+            certValid: byKey[key]!.certValid,
+            extra: byKey[key]!.extra,
+          ),
+      ],
+      hasIds: hasIds,
+      hasUptime: hasUptime,
+    );
   }
 
   Map<String, String?> _parseLabels(String raw) {

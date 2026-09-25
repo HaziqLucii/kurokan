@@ -658,3 +658,68 @@ Left uncovered, pre-existing, not touched by this diff: `stat_tile.dart`'s
 `level: UsageLevel.warn` specifically) and the gaps already logged in
 Phase 1.4/1.5 (`vitals_panel.dart`'s "stopped"/"suspended" status glyph,
 `dashboard_screen.dart`'s settings-navigation callback).
+
+## 2026-09-25 — Uptime Kuma version-adaptive parsing (Phase 2.1)
+
+`lib/features/uptime/data/prometheus_text_parser.dart`'s `parse()` now
+returns `ParseResult{monitors, hasIds, hasUptime}` instead of a bare
+`List<MonitorStatus>`: `hasIds` is true if any monitor line carried a
+`monitor_id` label, `hasUptime` if any `monitor_uptime_ratio` line was
+present at all (any window). Neither flag is wired into any UI yet; this
+phase is scoped to the parser and its data, per the plan. The real
+1.23.17 fixture (`test/fixtures/uptime_kuma_metrics.txt`) has neither, and
+now has a test asserting exactly that:
+`app_version{version="1.23.17"...}` in that fixture is the plan's basis
+for "the 24H column shows `—` honestly on 1.23" (the data genuinely isn't
+there, not a parsing bug). `uptime_kuma_metrics_source.dart`'s `fetch()`
+unwraps `.monitors` since `MonitorSource.fetch()` still returns
+`List<MonitorStatus>`.
+
+Grouping now prefers `labels['monitor_id']` over the existing full-label-
+set composite key when a `monitor_id` is present (older Kuma, 1.23.x,
+never emits one; the composite-key fallback is what the "against the real
+captured fixture" test group already covered). Whichever series carries
+`monitor_status` is now authoritative for the monitor's displayed
+`name`/`type`: right after a rename, a stale ("orphan") series sharing
+the same `monitor_id` can still be scraped alongside the live one until
+Prometheus's cache catches up, and previously whichever series' line
+appeared first in the body won that race by accident (the accumulator's
+name/type were set once, at first creation, from whatever labels that
+first line happened to carry).
+
+`double.tryParse('NaN')` returns `double.nan` in Dart, not `null` — the
+existing `if (value == null) continue` guard let a literal `NaN` metric
+value flow straight into `Duration(milliseconds: value.round())`
+(`.round()` on NaN throws `UnsupportedError`) or a stored NaN percent.
+Fixed with an explicit `|| value.isNaN` on the same guard.
+
+`monitor_uptime_ratio`'s 30d/365d windows, previously silently discarded
+(only `window == '1d'` was ever stored anywhere), now land in
+`MonitorStatus.extra` as `'uptime_30d'`/`'uptime_365d'` string keys — the
+first real consumer of the `extra` map Phase 2.0 added. Nothing reads
+them yet (no UI change); Phase 3's history/sparkline work is the more
+likely place to actually surface them, not this phase.
+
+`monitor_response_time_seconds` needs no special-case skip: it was
+already ignored structurally (the metric-name `switch` only matches
+`'monitor_response_time'` exactly, and Dart's `switch` does nothing for
+an unmatched value), so this phase only adds a test proving that's true
+and a code comment saying so, not new logic. Tag labels
+(`tag_slug` in the new fixture) were already excluded from both the
+existing composite key and the new `monitor_id`-based key, needing no
+change either — same story, a test now proves it rather than the
+guarantee resting on the label simply never being referenced anywhere.
+
+New fixture `test/fixtures/uptime_kuma_metrics_v2.txt`: two monitors, one
+with `monitor_id`, three uptime windows, a `tag_slug` label, a `NaN`
+response time, and a bare `monitor_response_time_seconds` line — a
+synthetic composite of every Phase 2.1 behavior in one file, distinct
+from the real single-purpose `uptime_kuma_metrics.txt` capture. Live-
+verification against a real newer Kuma instance (the plan's own
+suggestion) wasn't done here: Haziq's own reachable instance is the
+1.23.17 one already captured, which predates all of these fields.
+
+Left uncovered, pre-existing, not touched by this diff:
+`uptime_kuma_metrics_source.dart`'s `HttpException` catch branch and
+`prometheus_text_parser.dart`'s `_unescape`'s `\n`/default-escape
+branches (neither function was touched by this diff).
