@@ -9,6 +9,9 @@ import 'package:kurokan/core/config/app_config.dart';
 import 'package:kurokan/core/config/config_provider.dart';
 import 'package:kurokan/core/config/config_schema.dart';
 import 'package:kurokan/core/net/fetch_error.dart';
+import 'package:kurokan/features/containers/domain/container_status.dart';
+import 'package:kurokan/features/containers/presentation/containers_panel.dart';
+import 'package:kurokan/features/containers/presentation/containers_provider.dart';
 import 'package:kurokan/features/uptime/domain/monitor_source.dart';
 import 'package:kurokan/features/uptime/domain/monitor_status.dart';
 import 'package:kurokan/features/uptime/presentation/monitor_panel.dart';
@@ -44,6 +47,32 @@ class _FakeHostsSource implements HostsSource {
   @override
   Future<List<HostVitals>> fetch() => impl();
 }
+
+class _FakeContainerSource implements ContainerSource {
+  final Future<List<ContainerStatus>> Function() impl;
+  _FakeContainerSource(this.impl);
+
+  @override
+  Future<List<ContainerStatus>> fetch() => impl();
+}
+
+ContainerStatus _okContainer({
+  String name = 'web',
+  ContainerState state = ContainerState.running,
+  HealthState health = HealthState.healthy,
+  int restartCount = 0,
+}) => ContainerStatus(
+  id: 'c-$name',
+  name: name,
+  image: 'nginx:alpine',
+  state: state,
+  health: health,
+  restartCount: restartCount,
+  cpuPercent: 12,
+  memUsed: 40 * 1024 * 1024,
+  memLimit: 512 * 1024 * 1024,
+  startedAt: DateTime(2026, 1, 1),
+);
 
 HostVitals _okVitals({
   UsageLevel cpuLevel = UsageLevel.ok,
@@ -682,4 +711,201 @@ void main() {
 
     await _disposeTree(tester);
   });
+
+  testWidgets(
+    'a config with a container source renders a Containers panel with '
+    'rows and the running/exited footer count',
+    (tester) async {
+      await _setWindowSize(tester);
+      const config = AppConfig(
+        containers: [
+          SourceEntry(
+            kind: SourceKind.containers,
+            id: 'docker',
+            provider: 'docker',
+            settings: {},
+          ),
+        ],
+      );
+      final containers = _FakeContainerSource(
+        () async => [
+          _okContainer(name: 'web'),
+          _okContainer(
+            name: 'migrate',
+            state: ContainerState.exited,
+            health: HealthState.none,
+          ),
+          _okContainer(name: 'worker', restartCount: 3),
+        ],
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            appConfigProvider.overrideWithValue(config),
+            containersSourceProvider('docker').overrideWithValue(containers),
+          ],
+          child: const App(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ContainersPanel), findsOneWidget);
+      expect(find.text('web'), findsOneWidget);
+      expect(find.text('migrate'), findsOneWidget);
+      expect(find.text('worker'), findsOneWidget);
+      expect(find.text('3'), findsOneWidget); // worker's restart count
+      expect(find.textContaining('2 RUNNING'), findsOneWidget);
+      expect(find.textContaining('1 EXITED'), findsOneWidget);
+
+      await _disposeTree(tester);
+    },
+  );
+
+  testWidgets('a container source that fails on the very first fetch shows the '
+      'error body with the provider tag', (tester) async {
+    await _setWindowSize(tester);
+    const config = AppConfig(
+      containers: [
+        SourceEntry(
+          kind: SourceKind.containers,
+          id: 'docker',
+          provider: 'docker',
+          settings: {},
+        ),
+      ],
+    );
+    final containers = _FakeContainerSource(
+      () async => throw const NetworkError('connection refused'),
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          appConfigProvider.overrideWithValue(config),
+          containersSourceProvider('docker').overrideWithValue(containers),
+        ],
+        child: const App(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('CHECK DOCKER CONNECTIVITY'), findsOneWidget);
+
+    await _disposeTree(tester);
+  });
+
+  testWidgets(
+    'an empty container list renders the panel with a zero-count footer, '
+    'not a crash',
+    (tester) async {
+      await _setWindowSize(tester);
+      const config = AppConfig(
+        containers: [
+          SourceEntry(
+            kind: SourceKind.containers,
+            id: 'docker',
+            provider: 'docker',
+            settings: {},
+          ),
+        ],
+      );
+      final containers = _FakeContainerSource(() async => []);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            appConfigProvider.overrideWithValue(config),
+            containersSourceProvider('docker').overrideWithValue(containers),
+          ],
+          child: const App(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('0 RUNNING'), findsOneWidget);
+      expect(find.textContaining('0 EXITED'), findsOneWidget);
+
+      await _disposeTree(tester);
+    },
+  );
+
+  testWidgets(
+    'a container provider missing from the registry falls back to its '
+    'raw id, uppercased, as the panel tag',
+    (tester) async {
+      await _setWindowSize(tester);
+      const config = AppConfig(
+        containers: [
+          SourceEntry(
+            kind: SourceKind.containers,
+            id: 'mystery',
+            provider: 'mystery-provider',
+            settings: {},
+          ),
+        ],
+      );
+      final containers = _FakeContainerSource(() async => [_okContainer()]);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            appConfigProvider.overrideWithValue(config),
+            containersSourceProvider('mystery').overrideWithValue(containers),
+          ],
+          child: const App(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('MYSTERY-PROVIDER'), findsOneWidget);
+
+      await _disposeTree(tester);
+    },
+  );
+
+  testWidgets(
+    'a container source that goes stale after one good fetch shows the '
+    'stale footer, not the error footer',
+    (tester) async {
+      await _setWindowSize(tester);
+      const config = AppConfig(
+        containers: [
+          SourceEntry(
+            kind: SourceKind.containers,
+            id: 'docker',
+            provider: 'docker',
+            settings: {},
+          ),
+        ],
+      );
+      var callCount = 0;
+      final containers = _FakeContainerSource(() async {
+        callCount++;
+        if (callCount == 1) return [_okContainer()];
+        throw const NetworkError('timeout');
+      });
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            appConfigProvider.overrideWithValue(config),
+            containersSourceProvider('docker').overrideWithValue(containers),
+          ],
+          child: const App(),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.textContaining('FETCHED'), findsOneWidget);
+      expect(find.textContaining('STALE'), findsNothing);
+
+      await tester.pump(config.pollInterval);
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('STALE'), findsOneWidget);
+      expect(find.textContaining('FETCHED'), findsNothing);
+
+      await _disposeTree(tester);
+    },
+  );
 }

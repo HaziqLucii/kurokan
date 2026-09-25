@@ -1,0 +1,13 @@
+{
+  "ID": "c33a937f-995b-484b-bef4-728b8414d6b4",
+  "Containers": 3,
+  "ContainersRunning": 2,
+  "ContainersPaused": 0,
+  "ContainersStopped": 1,
+  "Images": 3,
+  "Name": "orbstack",
+  "ServerVersion": "29.4.0",
+  "OperatingSystem": "OrbStack",
+  "NCPU": 8,
+  "MemTotal": 8393605120
+}

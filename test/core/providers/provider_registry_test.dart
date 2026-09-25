@@ -5,6 +5,7 @@ import 'package:kurokan/core/config/config_schema.dart';
 import 'package:kurokan/core/providers/default_registry.dart';
 import 'package:kurokan/core/providers/provider_registry.dart';
 import 'package:kurokan/core/providers/provider_spec.dart';
+import 'package:kurokan/features/containers/data/docker_spec.dart';
 import 'package:kurokan/features/demo/demo_specs.dart';
 import 'package:kurokan/features/uptime/data/kuma_spec.dart';
 import 'package:kurokan/features/vps/data/webdock_spec.dart';
@@ -50,7 +51,7 @@ void main() {
   test('defaultRegistry contains every shipped provider', () {
     expect(defaultRegistry.hosts, [webdockSpec, demoHostSpec]);
     expect(defaultRegistry.uptime, [kumaSpec, demoUptimeSpec]);
-    expect(defaultRegistry.containers, isEmpty);
+    expect(defaultRegistry.containers, [dockerSpec, demoContainerSpec]);
   });
 
   // Table-driven guard against the `settings['x']!` runtime-null bug class:
@@ -169,6 +170,45 @@ void main() {
         settings: {},
       );
       expect(demoUptimeSpec.label(entry), 'Demo data');
+    });
+
+    test('demoContainerSpec.label is always "Demo data"', () {
+      const entry = SourceEntry(
+        kind: SourceKind.containers,
+        id: 'demo-containers',
+        provider: 'demo',
+        settings: {},
+      );
+      expect(demoContainerSpec.label(entry), 'Demo data');
+    });
+  });
+
+  group('dockerSpec', () {
+    test('label uses the endpoint setting when present', () {
+      const entry = SourceEntry(
+        kind: SourceKind.containers,
+        id: 'docker',
+        provider: 'docker',
+        settings: {'endpoint': 'unix:///custom/docker.sock'},
+      );
+      expect(dockerSpec.label(entry), 'unix:///custom/docker.sock');
+    });
+
+    test('label falls back to "Docker" for auto/absent endpoint', () {
+      const withoutSetting = SourceEntry(
+        kind: SourceKind.containers,
+        id: 'docker',
+        provider: 'docker',
+        settings: {},
+      );
+      const withAuto = SourceEntry(
+        kind: SourceKind.containers,
+        id: 'docker',
+        provider: 'docker',
+        settings: {'endpoint': 'auto'},
+      );
+      expect(dockerSpec.label(withoutSetting), 'Docker');
+      expect(dockerSpec.label(withAuto), 'Docker');
     });
   });
 }

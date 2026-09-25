@@ -19,6 +19,7 @@ void main() {
 
     expect(config.firstHost?.settings['slug'], 'webdock-prod-01');
     expect(config.firstUptime?.settings['url'], 'https://status.example.tld');
+    expect(config.containers.single.settings['endpoint'], 'auto');
     expect(config.pollInterval, const Duration(seconds: 30));
     expect(config.theme, ThemePreference.system);
   });

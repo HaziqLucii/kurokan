@@ -1,0 +1,10 @@
+{
+  "Id": "b42cdaf9ca6b37ed9f56dfb916767120fbfe6000c93b33a09b77d8dc76b6a1b9",
+  "Name": "/web",
+  "RestartCount": 0,
+  "State": {
+    "Status": "running",
+    "Running": true,
+    "StartedAt": "2026-09-25T00:37:38.627393083Z"
+  }
+}
