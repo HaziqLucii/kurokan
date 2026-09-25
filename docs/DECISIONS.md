@@ -956,9 +956,17 @@ across a config-settings change (rare) and costs one small idle
 `HttpClient`, not a growing leak. `stat_tile.dart`'s pre-existing `warn`-
 level gap and `dashboard_screen.dart`'s pre-existing `_openSettings` gap
 (both Phase 1.4/1.5/2.0) remain untouched by this diff.
-`docker_source.dart`'s `HttpException`/`TlsException` catch branches are
-uncovered for the same reason `webdock_source.dart`'s own are: consistent
-with that established, already-accepted gap, not a new one.
+
+Codecov's PR comment flagged `docker_source.dart`'s `HttpException`/
+`TlsException` catch branches, the one thing this entry originally
+called "accepted, matching an existing gap in `webdock_source.dart`."
+Haziq pushed back on treating that as good enough: unlike a genuinely
+hard-to-trigger condition (a real TLS handshake failure over a real
+socket), a `MockClient` callback can throw either exception type directly
+with no special setup, so there was no real reason to leave them
+uncovered. Fixed with two more tests; `docker_source.dart` is now 100%
+covered. `webdock_source.dart`'s identical gap is untouched (out of scope
+for this diff) but is the same easy fix if it comes up again.
 
 `config.example.json` gained a `docker` entry under `containers` (with
 `endpoint: "auto"`), and `config_example_test.dart` gained an assertion

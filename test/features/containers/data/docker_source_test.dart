@@ -234,6 +234,22 @@ void main() {
     await expectLater(_sourceWith(client).fetch, throwsA(isA<NetworkError>()));
   });
 
+  test('throws NetworkError on an HttpException', () async {
+    final client = MockClient(
+      (request) async => throw const HttpException('Connection reset'),
+    );
+    await expectLater(_sourceWith(client).fetch, throwsA(isA<NetworkError>()));
+  });
+
+  test('throws NetworkError on a TlsException', () async {
+    final client = MockClient(
+      (request) async => throw const TlsException(
+        'Handshake failed: CERTIFICATE_VERIFY_FAILED',
+      ),
+    );
+    await expectLater(_sourceWith(client).fetch, throwsA(isA<NetworkError>()));
+  });
+
   test(
     'throws ParseError when a response body is not valid JSON at all '
     '(distinct from valid-JSON-but-wrong-shape, checked separately)',
