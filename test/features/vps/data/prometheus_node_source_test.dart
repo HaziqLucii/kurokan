@@ -216,13 +216,79 @@ void main() {
         return http.Response(_emptyVector, 200);
       });
 
-      await _sourceWith(client, job: 'node', instanceRegex: '10\\..*').fetch();
+      // The value itself carries a literal backslash (10\..* — a private
+      // IP prefix filter), which _sel() must escape before interpolating
+      // into the PromQL string literal: a raw, unescaped backslash breaks
+      // every query against a real Prometheus with a lexer error.
+      const rawRegex = '10\\..*';
+      await _sourceWith(client, job: 'node', instanceRegex: rawRegex).fetch();
 
       expect(queriesSent, isNotEmpty);
       for (final q in queriesSent) {
         expect(q, contains('job="node"'));
-        expect(q, contains('instance=~"10\\..*"'));
+        expect(q, contains('instance=~"10\\\\..*"'));
       }
+    },
+  );
+
+  test(
+    'job/instanceRegex values containing a quote or backslash are escaped, not left to break the query',
+    () async {
+      String? capturedQuery;
+      final client = MockClient((request) async {
+        capturedQuery ??= request.url.queryParameters['query'];
+        return http.Response(_emptyVector, 200);
+      });
+
+      await _sourceWith(client, job: 'weird"job\\name').fetch();
+
+      expect(capturedQuery, contains(r'job="weird\"job\\name"'));
+    },
+  );
+
+  test(
+    'a host that stops being scraped stays visible (from the last-known name) as status "error", instead of disappearing',
+    () async {
+      final queriesSent = <String>[];
+      final client = MockClient((request) async {
+        final query = request.url.queryParameters['query'] ?? '';
+        queriesSent.add(query);
+        // web-2 is entirely absent from `up` (not merely 0) — simulating a
+        // target that has stopped being scraped altogether, distinct from
+        // the "explicit up=0" case the main happy-path test already covers.
+        if (query == 'up') {
+          return http.Response(
+            jsonEncode({
+              'status': 'success',
+              'data': {
+                'resultType': 'vector',
+                'result': [
+                  {
+                    'metric': {'instance': '203.0.113.10:9100', 'job': 'node'},
+                    'value': [1758600000, '1'],
+                  },
+                ],
+              },
+            }),
+            200,
+          );
+        }
+        return _routeFixture(request.url);
+      });
+
+      final hosts = await _sourceWith(client).fetch();
+
+      expect(hosts, hasLength(2));
+      final web2 = hosts.firstWhere((h) => h.slug == '203.0.113.11:9100');
+      expect(web2.status, 'error');
+      expect(web2.name, 'web-2');
+
+      // The design intent (surviving a stale-marker gap via a range window)
+      // is actually implemented, not just coincidentally working today.
+      expect(
+        queriesSent.any((q) => q.startsWith('last_over_time(node_uname_info')),
+        isTrue,
+      );
     },
   );
 
@@ -253,6 +319,94 @@ void main() {
             'status': 'error',
             'errorType': 'bad_data',
             'error': 'invalid parameter "query"',
+          }),
+          200,
+        ),
+      );
+      await expectLater(_sourceWith(client).fetch, throwsA(isA<ParseError>()));
+    },
+  );
+
+  test(
+    'a NaN or Infinity sample value degrades that gauge to null instead of crashing on .round()',
+    () async {
+      final client = MockClient((request) async {
+        final query = request.url.queryParameters['query'] ?? '';
+        if (query.contains('node_procs_running')) {
+          return http.Response(
+            jsonEncode({
+              'status': 'success',
+              'data': {
+                'resultType': 'vector',
+                'result': [
+                  {
+                    'metric': {'instance': '203.0.113.10:9100', 'job': 'node'},
+                    'value': [1758600000, 'NaN'],
+                  },
+                ],
+              },
+            }),
+            200,
+          );
+        }
+        return _routeFixture(request.url);
+      });
+
+      final hosts = await _sourceWith(client).fetch();
+      final web1 = hosts.firstWhere((h) => h.slug == '203.0.113.10:9100');
+      expect(web1.processCount, isNull);
+    },
+  );
+
+  test(
+    'Prometheus\'s abbreviated +Inf/-Inf sample values parse instead of throwing a raw FormatException',
+    () async {
+      final client = MockClient((request) async {
+        final query = request.url.queryParameters['query'] ?? '';
+        if (query.contains('node_cpu_seconds_total')) {
+          return http.Response(
+            jsonEncode({
+              'status': 'success',
+              'data': {
+                'resultType': 'vector',
+                'result': [
+                  {
+                    'metric': {'instance': '203.0.113.10:9100', 'job': 'node'},
+                    'value': [1758600000, '+Inf'],
+                  },
+                ],
+              },
+            }),
+            200,
+          );
+        }
+        return _routeFixture(request.url);
+      });
+
+      final hosts = await _sourceWith(client).fetch();
+      final web1 = hosts.firstWhere((h) => h.slug == '203.0.113.10:9100');
+      // +Inf is not a usable CPU percent either — same "unavailable" gauge
+      // as a missing sample, not a crash and not a bogus 3-digit-plus %.
+      expect(web1.cpu.percentUsed, isNull);
+    },
+  );
+
+  test(
+    'throws ParseError on a genuinely unparseable sample value (not a number, not NaN/Inf)',
+    () async {
+      final client = MockClient(
+        (request) async => http.Response(
+          jsonEncode({
+            'status': 'success',
+            'data': {
+              'resultType': 'vector',
+              'result': [
+                {
+                  'metric': {'instance': '203.0.113.10:9100'},
+                  'value': [1758600000, 'not-a-number'],
+                },
+              ],
+            },
           }),
           200,
         ),

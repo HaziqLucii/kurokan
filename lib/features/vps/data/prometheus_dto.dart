@@ -21,12 +21,31 @@ class PromSampleDTO {
     final epochSeconds = (valueArr[0] as num).toDouble();
     return PromSampleDTO(
       metric: rawMetric.map((k, v) => MapEntry(k, v.toString())),
-      value: double.parse(valueArr[1] as String),
+      value: _parseSampleValue(valueArr[1] as String),
       timestamp: DateTime.fromMillisecondsSinceEpoch(
         (epochSeconds * 1000).round(),
         isUtc: true,
       ).toLocal(),
     );
+  }
+}
+
+/// Prometheus writes `NaN`/`+Inf`/`-Inf` as valid sample values (e.g. a
+/// `rate()` across a counter reset). Dart's `double.parse` understands
+/// `NaN`/`Infinity`/`-Infinity` but not Prometheus's abbreviated `+Inf`/
+/// `-Inf`, so those two would otherwise throw a raw `FormatException` that
+/// escapes past every other error path in this source going through
+/// [ParseError].
+double _parseSampleValue(String raw) {
+  final normalized = switch (raw) {
+    '+Inf' => 'Infinity',
+    '-Inf' => '-Infinity',
+    _ => raw,
+  };
+  try {
+    return double.parse(normalized);
+  } on FormatException {
+    throw ParseError('unparseable sample value "$raw"');
   }
 }
 

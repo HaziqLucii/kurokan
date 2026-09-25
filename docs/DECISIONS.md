@@ -1138,3 +1138,68 @@ Phase 2.2's Docker entry — `sourceEntry`'s generic settings shape already
 covers provider-specific fields). `config.example.json` gained a second
 `hosts` entry demonstrating `prometheus` alongside the existing `webdock`
 one.
+
+`refuter`'s first pass on this phase's PR (#14) caught real bugs, not
+nitpicks, in the original design:
+
+- **A host that goes down would silently vanish instead of showing
+  down.** The original host-discovery query was a plain instant
+  `node_uname_info`. Prometheus writes a stale marker for every series a
+  target previously exposed the moment a scrape fails — except `up`
+  itself, which Prometheus always records (as 0) on every scrape attempt
+  regardless of success. A plain `node_uname_info` query therefore stops
+  returning a downed host almost immediately, which is the opposite of
+  what a monitoring dashboard should do with its main failure case. Fixed
+  by wrapping the name query in `last_over_time(node_uname_info{...}[1h])`,
+  which keeps a host's last-known name queryable for up to an hour after
+  it stops being scraped — long enough for `up=0` to still join against it
+  and render `status: 'error'` instead of the host disappearing.
+- **Joining every query on `instance` alone risked mixing up two
+  different jobs that share an instance label.** This phase's own
+  live-verification against a real deployment had already found that a
+  plain `up` query matches non-node_exporter targets sharing a box with a
+  node_exporter target; the fix at the time (deriving the host list from
+  `node_uname_info` instead of `up`) didn't fully close the gap, since
+  `up`, `node_load1`, disk, and every other per-host map were still keyed
+  by `instance` only. Fixed by joining every one of the 14 queries on
+  `(job, instance)` instead — including adding `job` to the two
+  `by(instance)` aggregations (cpu, network), which previously dropped the
+  label entirely.
+- **`_sel()` interpolated `job`/`instanceRegex` into a PromQL string
+  literal unescaped.** A regex containing an ordinary backslash escape
+  (this phase's own test used `10\..*`, a private-IP-prefix filter) broke
+  every one of the 14 queries against a real Prometheus with a
+  "bad_data: unknown escape sequence" lexer error — exactly the kind of
+  value these two optional settings exist to accept. Fixed with a small
+  escape helper (`\` → `\\`, `"` → `\"`) applied to both settings before
+  interpolation.
+- Two smaller robustness gaps: `PromSampleDTO.fromJson` used `double.parse`
+  directly, which throws a raw `FormatException` (escaping the
+  `FetchError` hierarchy every other failure in this source goes through)
+  on Prometheus's abbreviated `+Inf`/`-Inf` sample values (Dart's
+  `double.parse` only understands the unabbreviated `Infinity`); and
+  `.round()` was called on `NaN`/`Infinity` sample values without a guard,
+  throwing `UnsupportedError`. Both are valid PromQL sample values (a
+  `rate()` across a counter reset, a `0/0` in some derived expression),
+  rare but real. Fixed: `+Inf`/`-Inf` are normalized before parsing, any
+  other unparseable value throws `ParseError` explicitly, and a `_finite()`
+  guard treats `NaN`/`Infinity` the same as a missing sample (degrades the
+  gauge to null) rather than crashing.
+- One relabeling, not a logic fix: the `networkQuotaGiB` field was labeled
+  "GiB/mo" but compared against a 24h rolling window (the plan's own
+  explicit spec — kept as-is, since a 24h figure is more responsive for a
+  live dashboard than a static monthly one that barely moves), making the
+  displayed percentage read as roughly 1/30th of what a literal "per
+  month" quota would suggest. Relabeled to "GiB per 24h" with a hint
+  spelling out the comparison window, rather than changing the query to
+  match the old label.
+
+All fixes covered by new tests in
+`test/features/vps/data/prometheus_node_source_test.dart` (a host missing
+from `up` entirely but still present via `last_over_time`; escaped
+job/instanceRegex values with both a backslash and a quote; a NaN sample
+degrading a gauge instead of crashing on `.round()`; Prometheus's
+`+Inf`/`-Inf` parsing without throwing; a genuinely unparseable sample
+value still throwing `ParseError`), fixture files updated to include the
+`job` label the new `(job, instance)` keying requires. Second `refuter`
+pass confirmed clean before merge.

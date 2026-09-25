@@ -4,11 +4,11 @@
     "resultType": "vector",
     "result": [
       {
-        "metric": { "instance": "203.0.113.10:9100" },
+        "metric": { "instance": "203.0.113.10:9100", "job": "node" },
         "value": [1758600000, "0.42"]
       },
       {
-        "metric": { "instance": "203.0.113.11:9100" },
+        "metric": { "instance": "203.0.113.11:9100", "job": "node" },
         "value": [1758600000, "2.5"]
       }
     ]

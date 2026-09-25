@@ -37,9 +37,11 @@ const prometheusNodeSpec = ProviderSpec<HostsSource>(
     ),
     FieldSpec(
       key: 'networkQuotaGiB',
-      label: 'Network quota (GiB/mo)',
+      label: 'Network quota (GiB per 24h)',
       kind: FieldKind.integer,
       required: false,
+      hint:
+          'Compared against a rolling 24h receive+transmit total, not a monthly figure',
     ),
   ],
   create: _create,
