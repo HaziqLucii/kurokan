@@ -1,0 +1,38 @@
+[
+  {
+    "Id": "38a791146ddd8de62d7b3095a24e9bd94fb63942cb0e7f81e943811f5f227c8e",
+    "Names": [
+      "/setup"
+    ],
+    "Image": "alpine:latest",
+    "State": "created",
+    "Status": "Created"
+  },
+  {
+    "Id": "ef2c8dca12ef3541fe8d9b28157449234cb8272a5c4b4b32f2bb4a0c1c9ead0e",
+    "Names": [
+      "/migrate"
+    ],
+    "Image": "alpine:latest",
+    "State": "exited",
+    "Status": "Exited (0) About a minute ago"
+  },
+  {
+    "Id": "e2105c3c79c34999bf0bb095bfb66cb0a0a9c4622f938b9337e1967dc213e351",
+    "Names": [
+      "/api"
+    ],
+    "Image": "alpine:latest",
+    "State": "running",
+    "Status": "Up About a minute (healthy)"
+  },
+  {
+    "Id": "b42cdaf9ca6b37ed9f56dfb916767120fbfe6000c93b33a09b77d8dc76b6a1b9",
+    "Names": [
+      "/web"
+    ],
+    "Image": "nginx:alpine",
+    "State": "running",
+    "Status": "Up About a minute"
+  }
+]

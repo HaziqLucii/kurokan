@@ -8,6 +8,7 @@ import '../../core/config/config_provider.dart';
 import '../../core/theme/tokens.dart';
 import '../../shared/widgets/dossier_button.dart';
 import '../../shared/widgets/window_frame.dart';
+import '../containers/presentation/containers_provider.dart';
 import '../settings/settings_screen.dart';
 import '../uptime/presentation/uptime_provider.dart';
 import '../vps/presentation/hosts_provider.dart';
@@ -43,6 +44,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     _lastManualRefresh = now;
     ref.invalidate(uptimeProvider);
     ref.invalidate(hostsProvider);
+    ref.invalidate(containersProvider);
   }
 
   void _openSettings(AppConfig config, String configPath) {

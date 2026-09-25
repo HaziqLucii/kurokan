@@ -19,7 +19,13 @@
       "apiKey": "uk1_your-uptime-kuma-api-key"
     }
   ],
-  "containers": [],
+  "containers": [
+    {
+      "id": "docker",
+      "provider": "docker",
+      "endpoint": "auto"
+    }
+  ],
   "history": { "retentionHours": 24 },
   "notifications": { "enabled": false },
   "layout": { "order": [], "incidents": true }

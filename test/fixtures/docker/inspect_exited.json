@@ -1,0 +1,12 @@
+{
+  "Id": "ef2c8dca12ef3541fe8d9b28157449234cb8272a5c4b4b32f2bb4a0c1c9ead0e",
+  "Name": "/migrate",
+  "RestartCount": 0,
+  "State": {
+    "Status": "exited",
+    "Running": false,
+    "FinishedAt": "2026-09-25T00:37:39.183766158Z",
+    "StartedAt": "2026-09-25T00:37:39.1272278Z",
+    "ExitCode": 0
+  }
+}

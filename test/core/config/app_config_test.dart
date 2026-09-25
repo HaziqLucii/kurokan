@@ -156,25 +156,23 @@ void main() {
       },
     );
 
-    test(
-      'throws FormatException naming an empty allowed list for containers',
-      () {
-        final json = _fullJson()
-          ..['containers'] = [
-            {'id': 'docker', 'provider': 'docker', 'endpoint': 'unix:///x'},
-          ];
-        expect(
-          () => AppConfig.fromJson(json, schema: testConfigSchema),
-          throwsA(
-            isA<FormatException>().having(
-              (e) => e.message,
-              'message',
-              contains('none configured for this build'),
-            ),
+    test('throws FormatException naming the allowed provider list for an '
+        'unknown containers provider', () {
+      final json = _fullJson()
+        ..['containers'] = [
+          {'id': 'x', 'provider': 'mystery-provider'},
+        ];
+      expect(
+        () => AppConfig.fromJson(json, schema: testConfigSchema),
+        throwsA(
+          isA<FormatException>().having(
+            (e) => e.message,
+            'message',
+            contains('known: docker, demo'),
           ),
-        );
-      },
-    );
+        ),
+      );
+    });
 
     test('throws FormatException for an unsupported config version', () {
       final json = _fullJson()..['version'] = 3;

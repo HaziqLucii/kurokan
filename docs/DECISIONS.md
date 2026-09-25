@@ -760,3 +760,221 @@ Left uncovered, pre-existing, not touched by this diff:
 `uptime_kuma_metrics_source.dart`'s `HttpException` catch branch and
 `prometheus_text_parser.dart`'s `_unescape`'s `\n`/default-escape
 branches (neither function was touched by this diff).
+
+## 2026-09-25 — Docker/Podman containers (Phase 2.2)
+
+The headline panel: a new `lib/features/containers/` feature dir
+(`domain/container_status.dart`: `ContainerState`, `HealthState`,
+`ContainerStatus`, `ContainerSource`), a Docker Engine API source, and a
+`ContainersPanel` (narrow slot). `SourceKind.containers`,
+`AppConfig.containers`, and `ProviderRegistry.containers` already existed
+(Phase 1.1/1.2, typed `List<ProviderSpec<Object?>>` as a placeholder); this
+phase is what actually fills them in, retyped to
+`List<ProviderSpec<ContainerSource>>` now that the interface exists.
+
+**Live-verified against a real OrbStack Docker daemon** on this machine
+throughout this phase, not just against captured fixtures: started real
+containers in three states (a healthy one with a configured healthcheck,
+a plain one with none, one that exits immediately), captured `/version`,
+`/info`, `/containers/json`, per-container `/containers/{id}/json` and
+`/containers/{id}/stats?stream=false` from the actual API, then ran the
+finished `DockerSource.fetch()` directly against the live socket
+end-to-end (a throwaway script, deleted after) and confirmed sane
+CPU%/mem/health/state output before tearing the containers down. The
+fixtures under `test/fixtures/docker/` are trimmed captures of that real
+traffic (container names changed to something demo-appropriate).
+`test/fixtures/docker/stats_podman_zero_precpu.json` is fully synthesized,
+since this machine has no Podman to capture from. `stats.json`'s CPU
+counters are also hand-adjusted, not a pure capture: the real container
+was idle (0% CPU) at capture time, which doesn't exercise the percent
+math in a test meaningfully, so `total_usage` was nudged up to produce a
+realistic ~20% reading. `refuter` review caught that this nudge, done
+during the initial pass, left `usage_in_kernelmode`/`usage_in_usermode`
+unadjusted, so they no longer sum to the (bumped) `total_usage` — a real
+cgroup read can't do that. `DockerStatsDTO` never reads those two fields,
+so it had no effect on any test's correctness, but it made the fixture
+look less like a real capture than it should; fixed by bumping
+`usage_in_usermode` by the same amount as `total_usage`.
+
+**Transport** (`lib/core/net/docker_client_io.dart`, inside the Phase 1.0
+`dart:io` allowlist as a `core/net/*_io.dart` file): `DockerEndpoint` is
+`UnixSocket(path)` or `Tcp(host, port, {certPath})`. Deviation from a
+literal reading of `DockerSource`'s own constructor (`{client, apiVersion,
+stats, concurrency}`, no endpoint parameter): since `DockerSource` never
+sees the endpoint, `dockerHttpClient(endpoint)` has to redirect *every*
+connection to it via `HttpClient.connectionFactory`, for `Tcp` as much as
+`UnixSocket` — not just the unix-socket case the plan's own code sketch
+implied — so `DockerSource` can always address requests to a placeholder
+`http://localhost/...` URI regardless of which transport it's actually
+talking over. `io.findProxy = (_) => 'DIRECT'` is required alongside the
+factory (confirmed straight from the `dart:io` SDK source's own doc
+example for this exact unix-socket-Docker use case, `_http/http.dart`):
+without it, connections may otherwise get funneled through a system HTTP
+proxy meant for real network traffic, which will not work for either
+transport here. TLS for `Tcp` (`DOCKER_CERT_PATH`/`SecurityContext`) is
+the plan's own stated follow-up "if time allows" — not implemented;
+`certPath` is accepted and stored but unused. Both endpoint variants are
+genuinely live-tested: `UnixSocket` against the real OrbStack socket,
+`Tcp` against a loopback `HttpServer` proving the connection redirect
+(not just that a plain TCP client can be built).
+
+**Endpoint discovery** (`lib/features/containers/data/
+docker_endpoint_discovery.dart`): the `endpoint` settings field (default
+`'auto'`) resolves through `DOCKER_HOST`, then the documented candidate
+socket paths in order, falling back to `/var/run/docker.sock` even when
+nothing was found (so the resulting error is "connection refused at
+/var/run/docker.sock", not a dead end). The candidate filesystem check
+(`File.existsSync`) is injectable (`exists` parameter, defaulting to the
+real one) purely so tests don't depend on what sockets happen to exist on
+whatever machine runs them — this machine has a real OrbStack socket at
+the default path, which would otherwise make a broken "no candidate
+found" fallback path look like it passed for the wrong reason. The
+`/run/user/$UID/podman/podman.sock` candidate depends on a `UID`
+environment variable that, confirmed during `refuter` review, isn't just
+"some shells don't export it" — it's empty in `printenv` under both zsh
+and bash on this machine, and a GUI-launched app has no shell to inherit
+it from regardless, so this candidate is effectively dead in real use.
+Added `$XDG_RUNTIME_DIR/podman/podman.sock` ahead of it in the candidate
+list: rootless Podman's systemd user session actually exports
+`XDG_RUNTIME_DIR` by default, so that candidate has a real chance of
+matching where the `$UID` one doesn't. The `$UID` candidate is kept
+anyway for a shell session that happens to export it; an explicit
+`endpoint` setting or `DOCKER_HOST` remains the fully reliable path
+either way.
+
+**DockerSource** (`lib/features/containers/data/docker_source.dart`):
+`/_ping` and `/info` first, as connectivity/sanity checks (matching
+`WebdockSource`'s error-mapping template: `NetworkError`/`AuthError`/
+`HttpError`/`ParseError`/`TimeoutError`), then `/containers/json?all=1`,
+then per-container `/containers/{id}/json` + `/containers/{id}/stats?
+stream=false` through a small hand-rolled bounded-concurrency worker pool
+(`concurrency` workers pulling the next index off a shared counter; no
+dependency needed for this). Two deviations from the plan's literal
+endpoint list, both because `ContainerSource.fetch()` (the plan's own
+interface) returns only `List<ContainerStatus>`, with nowhere to put
+host-level data: `/info`'s `Name`/`NCPU`/`MemTotal`/`ContainersRunning`
+are fetched (as the sanity check above) but never surfaced anywhere —
+the panel's footer ("N RUNNING · M EXITED") is instead computed
+client-side from the fetched list itself, which the plan's own
+`ContainersPanel` section describes doing anyway. `/version` is skipped
+entirely: `/info`'s own `ServerVersion` field already covers what it
+would add, confirmed against the real captured `/info` response, so
+calling it would just be a second request for data with nowhere to go.
+
+Per-container inspect/stats calls each get their own 3s timeout and
+degrade to defaults (health `none`, restart count 0, every gauge/
+`startedAt` null) rather than failing the whole panel — this is the same
+"one straggler shouldn't take down the group" principle Phase 2.1's
+uptime parsing and Phase 1.4's polling already apply, just at the level
+of one container within one source's fetch instead of one source within
+the dashboard. Two things `refuter` review surfaced here, both accepted
+rather than fixed:
+- A degraded container's `restartCount: 0`/`health: none` is
+  indistinguishable from a container that's genuinely healthy with zero
+  restarts; the only visible tell is its uptime column reading `—` even
+  though the container is running. Fixing this would mean adding a
+  tri-state ("unknown" vs "zero") to `ContainerStatus`, which the plan's
+  own literal field shapes (`final int restartCount`, non-nullable) don't
+  have room for; not changed here.
+- `.timeout()` on the per-container calls doesn't cancel the underlying
+  request — `package:http`'s `Client` has no cancellation token, so a
+  request against a hung daemon keeps running in the background past the
+  3s the caller stops waiting for it. This is an existing property of
+  every source in this codebase that uses `.timeout()` this way
+  (`webdock_source.dart`, `uptime_kuma_metrics_source.dart` included), not
+  something new here. It matters more for Docker specifically because a
+  fleet of many containers polled at `concurrency: 4` against a genuinely
+  hung daemon could accumulate open sockets faster than those sources
+  ever would; `StatsMode.none` is the documented way out for a large
+  fleet, not a code fix.
+
+**CPU%/mem, and what the live capture actually revealed** (`docker_dto.dart`):
+`(cpu.total - precpu.total) / (system - presystem) * online_cpus * 100`,
+null (not a divide-by-zero, not a NaN, and — fixed after `refuter` review
+caught the first version missing this — not a negative percent either)
+when `precpu.total == 0` (the documented Podman quirk), `system -
+presystem <= 0`, `cpu.total - precpu.total < 0` (a cgroup counter that
+went backwards between the two snapshots, e.g. the container restarted
+mid-window), or any of the four inputs is missing. mem = `usage -
+(inactive_file ?? cache ?? 0)`, floored at null rather than a negative
+number when the offset exceeds `usage` (seen in practice right after a
+container starts, before its cgroup memory stats stabilize) — also a
+`refuter`-caught fix, not part of the original formula. Three things only
+the live capture surfaced, none of which the plan's own text called out:
+- A **stopped container's** `/stats` response is `200 OK`, not an error —
+  but `memory_stats` is `{}` and `cpu_stats` has no `system_cpu_usage` key
+  at all. Both DTOs treat every field as optional for exactly this reason.
+- A **never-started container** (`docker create`, not yet `start`ed)
+  reports `StartedAt` as the Go zero-time sentinel
+  (`"0001-01-01T00:00:00Z"`), not an absent field or `null`. Parsing it
+  literally would produce a container that's apparently been running
+  since the year 1; `DockerContainerInspectDTO` checks for this sentinel
+  explicitly and maps it to a null `startedAt`.
+- This machine's Docker Engine (29.4.0, API 1.54) still populates
+  `precpu_stats` meaningfully under `stream=false` (not the
+  `one-shot=true` zeroing the plan warns about), confirming the plan's
+  own guidance was right to call out `one-shot=true` specifically, not
+  `stream=false` generally.
+
+**`StatsMode`** (`full` default, `none`): not in the plan's own
+`DockerSource` snippet by name, but the plan's own prose says stats
+default to `full` via a `StatsMode` parameter, implying at least one
+other mode exists. `none` skips every per-container request, returning
+only what `/containers/json` itself carries (id, name, image, state) —
+the fast path for a very large fleet, at the cost of health/restarts/
+CPU/mem all reading as unavailable.
+
+**Panel** (`lib/features/containers/presentation/`): `containers_panel.dart`
+(loading/error/success states, mirroring `MonitorPanel`'s structure more
+than `VitalsPanel`'s, since both are "a list of typed items with state"),
+`container_row.dart` (glyph from state+health, uptime formatted D/H/M/S,
+restart count amber when nonzero, CPU%/MEM with `—` for null),
+`containers_skeleton.dart` (no dedicated test, matching every other
+loading skeleton in this codebase — none have one). Column set matches
+the plan exactly: glyph · name · image (dim) · uptime · restarts (amber
+when > 0) · CPU% · MEM, footer `N RUNNING · M EXITED`.
+
+**Demo mode**: `DemoContainerSource` + `demoContainerSpec` weren't in the
+plan's own Phase 2.2 text, but every other domain (host, uptime) already
+has a demo counterpart specifically so demo mode and the golden harness
+can showcase a feature without needing real infrastructure; leaving
+containers out would make the "headline panel" invisible in exactly the
+context (`--dart-define=KUROKAN_DEMO=true`, screenshots) where it matters
+most. Four fixed containers (running+healthy, running+no-healthcheck,
+running+starting-health, exited), `incident` scenario pins one unhealthy
+with restarts, `calm` never does — same pattern as the existing demo
+sources.
+
+Known, accepted, not fixed here: the per-instance `http.Client` a Docker
+`ProviderSpec.create()` builds (unlike every other provider, which reuses
+the one shared `httpClientProvider` instance) is never explicitly closed
+when `containersSourceProvider` is invalidated. `ContainerSource`'s
+interface (per the plan's own snippet) has no `close()`/dispose hook to
+call even if `containers_provider.dart` wanted to; adding one would mean
+deviating from the plan's stated interface for a leak that only matters
+across a config-settings change (rare) and costs one small idle
+`HttpClient`, not a growing leak. `stat_tile.dart`'s pre-existing `warn`-
+level gap and `dashboard_screen.dart`'s pre-existing `_openSettings` gap
+(both Phase 1.4/1.5/2.0) remain untouched by this diff.
+
+Codecov's PR comment flagged `docker_source.dart`'s `HttpException`/
+`TlsException` catch branches, the one thing this entry originally
+called "accepted, matching an existing gap in `webdock_source.dart`."
+Haziq pushed back on treating that as good enough: unlike a genuinely
+hard-to-trigger condition (a real TLS handshake failure over a real
+socket), a `MockClient` callback can throw either exception type directly
+with no special setup, so there was no real reason to leave them
+uncovered. Fixed with two more tests; `docker_source.dart` is now 100%
+covered. `webdock_source.dart`'s identical gap is untouched (out of scope
+for this diff) but is the same easy fix if it comes up again.
+
+`config.example.json` gained a `docker` entry under `containers` (with
+`endpoint: "auto"`), and `config_example_test.dart` gained an assertion
+that it actually parses; `docs/config.schema.json` needed no change,
+since `containers` and its generic `sourceEntry` shape already covered
+provider-specific settings fields like `endpoint` before this phase.
+
+Not done here, deliberately: `docs/PROVIDERS.md` (the plan's own
+"documentation deliverables" list marks it "Phase 2", not specifically
+2.2). A walkthrough is more useful once there's more than one real
+example to generalize from; deferred to later in Phase 2.

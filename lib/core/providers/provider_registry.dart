@@ -1,3 +1,4 @@
+import '../../features/containers/domain/container_status.dart';
 import '../../features/uptime/domain/monitor_source.dart';
 import '../../features/vps/domain/hosts_source.dart';
 import '../config/config_schema.dart';
@@ -6,9 +7,7 @@ import 'provider_spec.dart';
 class ProviderRegistry implements ConfigSchema {
   final List<ProviderSpec<HostsSource>> hosts;
   final List<ProviderSpec<MonitorSource>> uptime;
-  // No containers provider exists yet (Phase 2 adds Docker); typed as
-  // Object? until a ContainerSource domain interface exists to type it.
-  final List<ProviderSpec<Object?>> containers;
+  final List<ProviderSpec<ContainerSource>> containers;
 
   const ProviderRegistry({
     this.hosts = const [],
@@ -20,7 +19,8 @@ class ProviderRegistry implements ConfigSchema {
 
   ProviderSpec<MonitorSource>? uptimeSpec(String id) => _byId(uptime, id);
 
-  ProviderSpec<Object?>? containerSpec(String id) => _byId(containers, id);
+  ProviderSpec<ContainerSource>? containerSpec(String id) =>
+      _byId(containers, id);
 
   static ProviderSpec<S>? _byId<S>(List<ProviderSpec<S>> specs, String id) {
     for (final spec in specs) {

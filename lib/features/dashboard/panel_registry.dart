@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/config/config_provider.dart';
 import '../../core/providers/registry_provider.dart';
 import '../../version.dart';
+import '../containers/presentation/containers_panel.dart';
+import '../containers/presentation/containers_provider.dart';
 import '../uptime/presentation/monitor_panel.dart';
 import '../uptime/presentation/uptime_provider.dart';
 import '../vps/presentation/hosts_provider.dart';
@@ -67,6 +69,20 @@ final panelRegistryProvider = Provider<List<PanelEntry>>((ref) {
       ),
     );
   }
+  for (final container in config.containers) {
+    final async = ref.watch(containersProvider(container.id));
+    entries.add(
+      PanelEntry(
+        key: container.panelKey,
+        sourceId: container.id,
+        slot: PanelSlot.narrow,
+        fetchedAt: async.value?.fetchedAt,
+        isLoading: async.isLoading,
+        hasError: async.hasError,
+        build: () => ContainersPanel(sourceId: container.id),
+      ),
+    );
+  }
 
   final order = config.layout.order;
   if (order.isNotEmpty) {
@@ -95,7 +111,8 @@ final marginMetaProvider = Provider<String>((ref) {
     sourceLabel = registry.hostSpec(host.provider)?.label(host) ?? host.id;
   } else {
     sourceLabel =
-        '${config.hosts.length} HOSTS · ${config.uptime.length} UPTIME';
+        '${config.hosts.length} HOSTS · ${config.uptime.length} UPTIME · '
+        '${config.containers.length} CONTAINERS';
   }
 
   return '$sourceLabel · $pollLabel · V$appVersion';
